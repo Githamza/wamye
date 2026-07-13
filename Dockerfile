@@ -9,6 +9,11 @@ RUN npm ci
 FROM node:22-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+# NEXT_PUBLIC_* is inlined into the client bundle at build time, so it has to be
+# a build arg — a runtime env var would never reach the browser. Safe here only
+# because this flag is non-secret; the Fleetbase key stays runtime-only.
+ARG NEXT_PUBLIC_ALWAYS_OPEN
+ENV NEXT_PUBLIC_ALWAYS_OPEN=$NEXT_PUBLIC_ALWAYS_OPEN
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build

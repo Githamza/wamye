@@ -29,7 +29,11 @@ export function searchCommerces(query: string): Commerce[] {
 export const OPEN_HOUR = 11;
 export const CLOSE_HOUR = 23;
 
+// Bypasses the hours check so the order flow can be exercised at any time.
+const ALWAYS_OPEN = process.env.NEXT_PUBLIC_ALWAYS_OPEN === "true";
+
 export function isOpenNow(now = new Date()): boolean {
+  if (ALWAYS_OPEN) return true;
   const h = now.getHours();
   return h >= OPEN_HOUR && h < CLOSE_HOUR;
 }
