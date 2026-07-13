@@ -1,0 +1,14 @@
+{
+  "name": "Livraison Djerba",
+  "short_name": "Livraison Djerba",
+  "description": "Commandez repas, courses et livraisons à Djerba & Midoun.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAFAF9",
+  "theme_color": "#0F766E",
+  "lang": "fr",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

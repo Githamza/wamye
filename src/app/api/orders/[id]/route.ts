@@ -1,0 +1,34 @@
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { getOrder, FleetbaseError, isConfigured } from "@/lib/fleetbase";
+
+// Status polling is always request-time (never cached).
+export const dynamic = "force-dynamic";
+
+export async function GET(
+  _request: NextRequest,
+  ctx: RouteContext<"/api/orders/[id]">,
+) {
+  if (!isConfigured()) {
+    return NextResponse.json(
+      { error: "Le service de commande n'est pas configuré." },
+      { status: 503 },
+    );
+  }
+
+  const { id } = await ctx.params;
+
+  try {
+    const status = await getOrder(id);
+    return NextResponse.json(status, {
+      headers: { "Cache-Control": "no-store" },
+    });
+  } catch (err) {
+    const status = err instanceof FleetbaseError ? err.status : 500;
+    console.error(`[orders/${id}] status failed:`, (err as Error).message);
+    return NextResponse.json(
+      { error: "Suivi indisponible." },
+      { status: status === 404 ? 404 : 502 },
+    );
+  }
+}

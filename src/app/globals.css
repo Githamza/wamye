@@ -1,26 +1,128 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  /* Brand palette — transcribed from Livraison Djerba.dc.html */
+  --color-brand: #0F766E;
+  --color-brand-hover: #115E59;
+  --color-brand-active: #134E4A;
+  --color-brand-ink: #134E4A;
+  --color-brand-bg: #F0FDFA;
+  --color-brand-border: #99F6E4;
+  --color-brand-fill: #CCFBF1;
+  --color-amber: #F59E0B;
+  --color-success: #16A34A;
+  --color-success-bg: #F0FDF4;
+  --color-danger: #DC2626;
+  --color-danger-bg: #FEF2F2;
+  --color-danger-border: #FECACA;
+  --color-danger-ink: #7F1D1D;
+  --color-page: #EDEBE9;
+  --color-app: #FAFAF9;
+  --color-frame: #DDD9D6;
+  --color-hair: #E7E5E4;
+  --color-hair-2: #F5F5F4;
+  --color-stone-ink: #1C1917;
+  --color-stone-muted: #78716C;
+  --color-stone-muted2: #57534E;
+  --color-stone-faint: #A8A29E;
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+
+  --animate-pulse-dot: pulseDot 1.6s ease-in-out infinite;
+  --animate-shimmer: shimmer 1.4s linear infinite;
+
+  @keyframes pulseDot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: .35; transform: scale(.8); }
+  }
+  @keyframes shimmer {
+    0% { background-position: -300px 0; }
+    100% { background-position: 300px 0; }
+  }
+  @keyframes drawStroke { to { stroke-dashoffset: 0; } }
+  @keyframes popIn {
+    0% { transform: scale(.6); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes fadeUp {
+    0% { transform: translateY(12px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --radius: 0.625rem;
+  --background: #FAFAF9;
+  --foreground: #1C1917;
+  --card: #FFFFFF;
+  --card-foreground: #1C1917;
+  --popover: #FFFFFF;
+  --popover-foreground: #1C1917;
+  --primary: #0F766E;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F5F5F4;
+  --secondary-foreground: #1C1917;
+  --muted: #F5F5F4;
+  --muted-foreground: #78716C;
+  --accent: #F0FDFA;
+  --accent-foreground: #134E4A;
+  --destructive: #DC2626;
+  --border: #E7E5E4;
+  --input: #E7E5E4;
+  --ring: #0F766E;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-stone-faint);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+/* Animation utility classes */
+.anim-pop-in { animation: popIn 300ms ease-out; }
+.anim-fade-up { animation: fadeUp 260ms ease-out; }
+.anim-fade-in { animation: fadeIn 200ms ease-out; }
+.draw-stroke { animation: drawStroke 600ms ease-out forwards; }
+.draw-check { animation: drawStroke 350ms ease-out 500ms forwards; }
