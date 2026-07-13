@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { Check, Store, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, Loader2, Store, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { type Commerce, searchCommerces } from "@/lib/djerba";
+import { type PlaceSuggestion, isMapsEnabled, resolvePlace, searchPlaces } from "@/lib/maps";
 
 type Props = {
   selected: Commerce | null;
@@ -14,6 +15,17 @@ type Props = {
   onDescribeChange: (v: string) => void;
 };
 
+/** A row in the dropdown, from Google Places or from the hardcoded fallback. */
+type Row = {
+  id: string;
+  name: string;
+  addr: string;
+  /** Present only for Places rows — resolving it yields the pickup coordinates. */
+  suggestion?: PlaceSuggestion;
+};
+
+const DEBOUNCE_MS = 250;
+
 export function CommerceCombo({
   selected,
   onSelect,
@@ -23,7 +35,80 @@ export function CommerceCombo({
 }: Props) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  const results = searchCommerces(query);
+  const [placeRows, setPlaceRows] = useState<Row[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [resolving, setResolving] = useState(false);
+
+  // Guards against a slow early request overwriting a newer one's results.
+  const seq = useRef(0);
+
+  const places = isMapsEnabled();
+  const q = query.trim();
+
+  // Without a Maps key the hardcoded list is a pure function of the query, so
+  // it needs no state and no effect.
+  const rows: Row[] = places ? (q === "" ? [] : placeRows) : searchCommerces(q);
+
+  useEffect(() => {
+    if (!places || q === "") return;
+
+    // Debounce: Places bills per keystroke-session, and an un-throttled request
+    // per character is both slow and wasteful. The spinner is raised inside the
+    // timer, so a fast typist never sees it flash.
+    const id = ++seq.current;
+    const timer = window.setTimeout(async () => {
+      setSearching(true);
+      try {
+        const found = await searchPlaces(q);
+        if (seq.current !== id) return; // a newer keystroke won
+        setPlaceRows(
+          found.map((s) => ({
+            id: s.placeId,
+            name: s.name,
+            addr: s.secondary,
+            suggestion: s,
+          })),
+        );
+      } catch (err) {
+        console.error("[places] search failed:", err);
+        if (seq.current === id) setPlaceRows(searchCommerces(q)); // fall back to the local list
+      } finally {
+        if (seq.current === id) setSearching(false);
+      }
+    }, DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [q, places]);
+
+  async function pick(row: Row) {
+    setOpen(false);
+    setQuery("");
+
+    // Local fallback rows already carry everything we need.
+    if (!row.suggestion) {
+      onSelect({ id: row.id, name: row.name, addr: row.addr });
+      return;
+    }
+
+    setResolving(true);
+    try {
+      const place = await resolvePlace(row.suggestion);
+      onSelect({
+        id: place.placeId,
+        name: place.name,
+        addr: place.addr,
+        lat: place.lat,
+        lng: place.lng,
+      });
+    } catch (err) {
+      // Keep the commerce, lose only the coordinates: the order still works,
+      // it just falls back to the straight-line fee estimate.
+      console.error("[places] resolve failed:", err);
+      onSelect({ id: row.id, name: row.name, addr: row.addr });
+    } finally {
+      setResolving(false);
+    }
+  }
 
   // Free-text "describe it" mode
   if (describe) {
@@ -62,6 +147,10 @@ export function CommerceCombo({
     );
   }
 
+  const showDropdown = open && q !== "";
+  // `searching` can outlive a cleared query (its timer was cancelled mid-flight).
+  const busy = (searching && q !== "") || resolving;
+
   // Typeahead
   return (
     <div className="relative flex flex-col">
@@ -77,33 +166,33 @@ export function CommerceCombo({
           onBlur={() => setTimeout(() => setOpen(false), 120)}
           placeholder="Restaurant, épicerie, pharmacie…"
           aria-label="Commerce"
-          className="h-12 rounded-[10px] pl-[42px] text-[15px]"
+          disabled={resolving}
+          className="h-12 rounded-[10px] pl-[42px] pr-10 text-[15px]"
         />
+        {busy && (
+          <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-stone-muted" />
+        )}
       </div>
 
-      {open && query.trim() !== "" && (
+      {showDropdown && (
         <div className="anim-fade-in absolute top-full z-10 mt-1.5 flex w-full flex-col overflow-hidden rounded-[10px] border border-hair bg-white shadow-[0_8px_24px_rgba(28,25,23,0.10)]">
-          {results.length === 0 ? (
+          {rows.length === 0 ? (
             <div className="p-3.5 text-center text-[14px] text-stone-muted">
-              Aucun résultat — essayez « Décrivez-le »
+              {busy ? "Recherche…" : "Aucun résultat — essayez « Décrivez-le »"}
             </div>
           ) : (
-            results.map((c, i) => (
+            rows.map((c, i) => (
               <button
                 key={c.id}
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
-                  onSelect(c);
-                  setQuery("");
-                  setOpen(false);
-                }}
+                onClick={() => pick(c)}
                 className={`flex min-h-12 w-full flex-col items-start gap-px px-3.5 py-2.5 text-left transition-colors hover:bg-brand-bg ${
                   i === 0 ? "bg-brand-bg" : "border-t border-hair-2"
                 }`}
               >
                 <span className="text-[15px] font-medium text-stone-ink">{c.name}</span>
-                <span className="text-[13px] text-stone-muted">{c.addr}</span>
+                <span className="truncate text-[13px] text-stone-muted">{c.addr}</span>
               </button>
             ))
           )}

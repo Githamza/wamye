@@ -14,6 +14,14 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # because this flag is non-secret; the Fleetbase key stays runtime-only.
 ARG NEXT_PUBLIC_ALWAYS_OPEN
 ENV NEXT_PUBLIC_ALWAYS_OPEN=$NEXT_PUBLIC_ALWAYS_OPEN
+# Same reason: the Maps browser key must exist at build time or it inlines as
+# `undefined` and the map silently stays mocked in production. Public by design
+# (referrer-restricted in Google Cloud) — unlike GOOGLE_MAPS_SERVER_KEY, which
+# is a runtime-only secret and must never be a build arg.
+ARG NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY
+ENV NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY=$NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY
+ARG NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID
+ENV NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID=$NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build

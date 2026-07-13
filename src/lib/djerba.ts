@@ -6,6 +6,13 @@ export type Commerce = {
   id: string;
   name: string;
   addr: string;
+  /**
+   * Pickup coordinates. Only present for commerces picked from Google Places;
+   * the hardcoded fallback list below has none, so orders sourced from it fall
+   * back to the straight-line fee estimate.
+   */
+  lat?: number;
+  lng?: number;
 };
 
 export const COMMERCES: Commerce[] = [
@@ -81,16 +88,36 @@ function roundToHalf(n: number): number {
   return Math.round(n * 2) / 2;
 }
 
+/**
+ * The delivery fee for a given distance. Shared by the client's straight-line
+ * estimate and the server's authoritative road-distance quote so the two can
+ * never drift apart.
+ */
+export function feeForKm(distanceKm: number): number {
+  return Math.max(MIN_FEE, roundToHalf(BASE_FEE + FEE_PER_KM * distanceKm));
+}
+
 export type ZoneResult =
   | { inZone: true; distanceKm: number; fee: number }
   | { inZone: false };
 
-/** Given a real (or simulated) coordinate, decide zone + fee. */
+/**
+ * Decide zone + estimated fee from a coordinate alone.
+ *
+ * Straight-line, so it needs no API call and no commerce: it runs the instant
+ * the customer shares their position. The zone verdict is final; the fee is
+ * only an estimate, refined by the road-distance quote once a commerce with
+ * coordinates is known (see POST /api/quote).
+ */
 export function evaluatePosition(pos: { lat: number; lng: number }): ZoneResult {
   const distanceKm = haversineKm(DJERBA, pos);
   if (distanceKm > ZONE_RADIUS_KM) return { inZone: false };
-  const fee = Math.max(MIN_FEE, roundToHalf(BASE_FEE + FEE_PER_KM * distanceKm));
-  return { inZone: true, distanceKm: Math.max(0.5, distanceKm), fee };
+  return { inZone: true, distanceKm: Math.max(0.5, distanceKm), fee: feeForKm(distanceKm) };
+}
+
+/** True when a coordinate is inside the delivery zone. Used server-side too. */
+export function isInZone(pos: { lat: number; lng: number }): boolean {
+  return haversineKm(DJERBA, pos) <= ZONE_RADIUS_KM;
 }
 
 /** Fallback position inside Djerba (used when geolocation is unavailable). */

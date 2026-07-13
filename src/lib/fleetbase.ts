@@ -126,6 +126,14 @@ function buildPayload(input: CreateOrderInput): Record<string, unknown> {
     street1: input.commerceAddr?.trim() || input.commerceName,
     country: "TN",
   };
+  // Exact pickup coordinates, when the commerce was picked from Google Places.
+  // Without this the driver only gets a street string to interpret.
+  if (input.commercePosition) {
+    pickup.location = {
+      type: "Point",
+      coordinates: [input.commercePosition.lng, input.commercePosition.lat],
+    };
+  }
 
   const dropoff: Record<string, unknown> = {
     name: input.prenom?.trim() || "Client",
@@ -161,6 +169,8 @@ function buildPayload(input: CreateOrderInput): Record<string, unknown> {
       prenom: input.prenom ?? "",
       delivery_fee_dt: input.fee,
       distance_km: input.distanceKm,
+      // "road" = real driving distance; "estimate" = straight-line fallback.
+      distance_source: input.quoteSource ?? "estimate",
     },
     dispatch: DISPATCH,
   };

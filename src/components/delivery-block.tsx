@@ -1,6 +1,6 @@
 "use client";
 
-import { Crosshair } from "lucide-react";
+import { Crosshair, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { MiniMap } from "@/components/mini-map";
 import { formatDT } from "@/lib/djerba";
@@ -11,6 +11,14 @@ type Props = {
   status: DeliveryStatus;
   fee: number | null;
   distanceKm: number | null;
+  /** Driving time, when the fee came from a real road route. */
+  durationMin: number | null;
+  /** "road" = Routes API; "estimate" = straight-line fallback. */
+  quoteSource: "road" | "estimate";
+  /** A road-distance quote is in flight — the fee shown is still the estimate. */
+  quoting: boolean;
+  position: { lat: number; lng: number } | null;
+  onPositionChange: (pos: { lat: number; lng: number }) => void;
   repere: string;
   onRepere: (v: string) => void;
   onUseLocation: () => void;
@@ -33,11 +41,17 @@ export function DeliveryBlock({
   status,
   fee,
   distanceKm,
+  durationMin,
+  quoteSource,
+  quoting,
+  position,
+  onPositionChange,
   repere,
   onRepere,
   onUseLocation,
 }: Props) {
   const located = status === "ready" || status === "outzone";
+  const onRoad = quoteSource === "road";
 
   return (
     <>
@@ -66,7 +80,7 @@ export function DeliveryBlock({
         </>
       )}
 
-      {located && <MiniMap />}
+      {located && <MiniMap position={position} onPositionChange={onPositionChange} />}
 
       {located && (
         <Input
@@ -82,15 +96,24 @@ export function DeliveryBlock({
         <div className="anim-fade-up flex flex-col gap-1 rounded-xl border border-brand-border bg-brand-bg px-4 py-3.5">
           <div className="flex items-baseline justify-between">
             <div className="text-[15px] font-medium text-brand-ink">Frais de livraison</div>
-            <div className="text-[13px] text-stone-muted">
-              ~{formatDT(distanceKm ?? 0)} km
+            <div className="flex items-center gap-1.5 text-[13px] text-stone-muted">
+              {quoting && <Loader2 className="size-3.5 animate-spin" />}
+              {/* Straight-line distances get a "~"; road distances are exact. */}
+              {onRoad
+                ? `${formatDT(distanceKm ?? 0)} km par la route`
+                : `~${formatDT(distanceKm ?? 0)} km`}
+              {onRoad && durationMin !== null && ` · ${durationMin} min`}
             </div>
           </div>
           <div className="text-[26px] font-extrabold tracking-[-0.01em] text-amber">
             {formatDT(fee)} DT
           </div>
           <div className="text-xs text-stone-muted">
-            Prix du repas confirmé par le livreur avant achat
+            {quoting
+              ? "Calcul de l'itinéraire…"
+              : onRoad
+                ? "Prix du repas confirmé par le livreur avant achat"
+                : "Estimation — choisissez un commerce pour le tarif exact"}
           </div>
         </div>
       )}

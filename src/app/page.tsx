@@ -25,6 +25,7 @@ import {
   saveLastOrder,
   simulatedDjerbaPosition,
 } from "@/lib/djerba";
+import type { Quote } from "@/lib/order-types";
 
 type Screen = "order" | "confirm";
 
@@ -49,6 +50,9 @@ export default function Page() {
   const [deliveryStatus, setDeliveryStatus] = useState<DeliveryStatus>("idle");
   const [fee, setFee] = useState<number | null>(null);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
+  const [durationMin, setDurationMin] = useState<number | null>(null);
+  const [quoteSource, setQuoteSource] = useState<"road" | "estimate">("estimate");
+  const [quoting, setQuoting] = useState(false);
   const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null);
 
   // ---- screen / meta state ----
@@ -82,6 +86,56 @@ export default function Page() {
     return () => window.removeEventListener("beforeinstallprompt", onPrompt);
   }, []);
 
+  // Refine the straight-line estimate into a real road-distance fee, once both
+  // ends of the trip are known. Needs a commerce with coordinates, which only
+  // comes from Google Places — a commerce from the fallback list, or one typed
+  // free-hand, keeps the estimate.
+  const commerceLat = commerce?.lat;
+  const commerceLng = commerce?.lng;
+  useEffect(() => {
+    if (commerceLat === undefined || commerceLng === undefined) return;
+    if (!position || deliveryStatus !== "ready") return;
+
+    let cancelled = false;
+
+    void (async () => {
+      setQuoting(true);
+      try {
+        const res = await fetch("/api/quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            origin: { lat: commerceLat, lng: commerceLng },
+            destination: position,
+          }),
+        });
+        if (cancelled) return;
+
+        // A failed quote is not fatal: the straight-line estimate still stands.
+        if (!res.ok) {
+          console.error("[quote] failed:", res.status);
+          return;
+        }
+
+        const q = (await res.json()) as Quote;
+        if (cancelled) return;
+
+        setFee(q.fee);
+        setDistanceKm(q.distanceKm);
+        setDurationMin(q.durationMin);
+        setQuoteSource(q.source);
+      } catch (err) {
+        if (!cancelled) console.error("[quote] failed:", err);
+      } finally {
+        if (!cancelled) setQuoting(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [commerceLat, commerceLng, position, deliveryStatus]);
+
   // ---- derived ----
   const commerceLabel = describe ? describeText.trim() : commerce?.name ?? "";
   const hasCommerce = commerceLabel !== "";
@@ -104,24 +158,34 @@ export default function Page() {
       : "Commander";
 
   // ---- handlers ----
+  /**
+   * Apply a coordinate — from geolocation, or from the customer dragging the
+   * pin. The zone verdict and the straight-line fee estimate land immediately;
+   * the road-distance quote refines the fee afterwards (see the effect below).
+   */
+  function applyPosition(pos: { lat: number; lng: number }) {
+    setPosition(pos);
+    // Any new coordinate invalidates the previous road quote.
+    setDurationMin(null);
+    setQuoteSource("estimate");
+
+    const res = evaluatePosition(pos);
+    if (res.inZone) {
+      setFee(res.fee);
+      setDistanceKm(res.distanceKm);
+      setDeliveryStatus("ready");
+    } else {
+      setFee(null);
+      setDistanceKm(null);
+      setDeliveryStatus("outzone");
+    }
+  }
+
   function handleUseLocation() {
     setDeliveryStatus("locating");
 
     const finish = (pos: { lat: number; lng: number }) => {
-      window.setTimeout(() => {
-        const res = evaluatePosition(pos);
-        if (res.inZone) {
-          setFee(res.fee);
-          setDistanceKm(res.distanceKm);
-          setPosition(pos);
-          setDeliveryStatus("ready");
-        } else {
-          setFee(null);
-          setDistanceKm(null);
-          setPosition(null);
-          setDeliveryStatus("outzone");
-        }
-      }, 1400);
+      window.setTimeout(() => applyPosition(pos), 1400);
     };
 
     if (typeof navigator !== "undefined" && navigator.geolocation) {
@@ -155,11 +219,16 @@ export default function Page() {
           order: order.trim(),
           commerceName: commerceLabel,
           commerceAddr: commerce?.addr ?? null,
+          commercePosition:
+            commerce?.lat !== undefined && commerce?.lng !== undefined
+              ? { lat: commerce.lat, lng: commerce.lng }
+              : null,
           repere: repere.trim(),
           phone,
           prenom: prenom.trim(),
           fee,
           distanceKm,
+          quoteSource,
           position,
         }),
       });
@@ -324,6 +393,11 @@ export default function Page() {
                   status={deliveryStatus}
                   fee={fee}
                   distanceKm={distanceKm}
+                  durationMin={durationMin}
+                  quoteSource={quoteSource}
+                  quoting={quoting}
+                  position={position}
+                  onPositionChange={applyPosition}
                   repere={repere}
                   onRepere={setRepere}
                   onUseLocation={handleUseLocation}
