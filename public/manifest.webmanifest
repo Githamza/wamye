@@ -1,7 +1,7 @@
 {
-  "name": "Livraison Djerba",
-  "short_name": "Livraison Djerba",
-  "description": "Commandez repas, courses et livraisons à Djerba & Midoun.",
+  "name": "Livraison Express",
+  "short_name": "Livraison Express",
+  "description": "Commandez repas, courses et livraisons près de chez vous.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FAFAF9",

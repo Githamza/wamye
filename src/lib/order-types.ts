@@ -37,8 +37,10 @@ export type CreateOrderInput = {
   /** Pickup coordinates, when the commerce came from Google Places. */
   commercePosition?: LatLng | null;
   repere?: string;
-  /** 8 local digits, e.g. "22483921". */
+  /** National digits as typed, e.g. "0612345678" (FR) or "4155551234" (US). */
   phone: string;
+  /** ISO 3166-1 alpha-2 country of the phone number, e.g. "FR". Drives E.164. */
+  country: string;
   prenom?: string;
   fee: number | null;
   distanceKm: number | null;

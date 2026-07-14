@@ -8,7 +8,7 @@
 // Verified against fleetbase/fleetops-api (v0.7.51):
 //   POST /v1/orders          — create (pickup/dropoff/entities/meta)
 //   GET  /v1/orders/{id}      — read status + tracking number
-// A delivery order maps a Djerba order like so:
+// A delivery order maps a Tours order like so:
 //   pickup  = commerce (name + address string)
 //   dropoff = customer (name + landmark + phone + GPS Point)
 //   entities = the free-text order, notes/meta carry the rest.
@@ -20,6 +20,7 @@ import type {
   OrderStage,
   OrderStatus,
 } from "@/lib/order-types";
+import { toE164 } from "@/lib/phone";
 
 const API_URL = (process.env.FLEETBASE_API_URL ?? "http://91.134.240.158").replace(
   /\/+$/,
@@ -123,14 +124,15 @@ function readDriverAssigned(o: FleetbaseOrder): boolean {
   return d != null && d !== "" && d !== false;
 }
 
-/** Build the FleetOps order payload from a Djerba order. */
+/** Build the FleetOps order payload from a customer order. */
 function buildPayload(input: CreateOrderInput): Record<string, unknown> {
-  const phoneIntl = `+216${input.phone}`;
+  // E.164 for the customer's country (e.g. FR: 0612… → +33612…).
+  const phoneIntl = toE164(input.phone, input.country);
 
   const pickup: Record<string, unknown> = {
     name: input.commerceName,
     street1: input.commerceAddr?.trim() || input.commerceName,
-    country: "TN",
+    country: input.country,
   };
   // Exact pickup coordinates, when the commerce was picked from Google Places.
   // Without this the driver only gets a street string to interpret.
@@ -145,7 +147,7 @@ function buildPayload(input: CreateOrderInput): Record<string, unknown> {
     name: input.prenom?.trim() || "Client",
     street1: input.repere?.trim() || "Position GPS partagée par le client",
     phone: phoneIntl,
-    country: "TN",
+    country: input.country,
   };
   // Attach the exact drop coordinates as a GeoJSON Point (Fleetbase's
   // Point cast accepts GeoJSON directly — no geocoder required).
@@ -169,11 +171,11 @@ function buildPayload(input: CreateOrderInput): Record<string, unknown> {
       .filter(Boolean)
       .join("\n"),
     meta: {
-      source: "livraison-djerba-web",
+      source: "livraison-web",
       commerce: input.commerceName,
       phone: phoneIntl,
       prenom: input.prenom ?? "",
-      delivery_fee_dt: input.fee,
+      delivery_fee_eur: input.fee,
       distance_km: input.distanceKm,
       // "road" = real driving distance; "estimate" = straight-line fallback.
       distance_source: input.quoteSource ?? "estimate",

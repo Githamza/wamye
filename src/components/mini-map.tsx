@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  DJERBA_CENTER,
+  DEFAULT_CENTER,
   MAP_ID,
   isMapsEnabled,
   loadMapLibs,
@@ -10,7 +10,7 @@ import {
 } from "@/lib/maps";
 
 type Props = {
-  /** The customer's current pin. Falls back to the island centre. */
+  /** The customer's current pin. Falls back to the default centre. */
   position?: { lat: number; lng: number } | null;
   /** Fired when the customer drags the pin to correct their address. */
   onPositionChange?: (pos: { lat: number; lng: number }) => void;
@@ -78,7 +78,7 @@ export function MiniMap({ position, onPositionChange }: Props) {
 
   // Read once for the initial centre; later prop changes are handled by the
   // sync effect below, so the map is never rebuilt mid-drag.
-  const centerRef = useRef(position ?? DJERBA_CENTER);
+  const centerRef = useRef(position ?? DEFAULT_CENTER);
 
   useEffect(() => {
     if (!isMapsEnabled()) return;

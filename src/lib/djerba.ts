@@ -1,5 +1,5 @@
 // ============================================================
-// Livraison Djerba — domain logic
+// Livraison Tours — domain logic
 // ============================================================
 
 export type Commerce = {
@@ -15,13 +15,15 @@ export type Commerce = {
   lng?: number;
 };
 
+// Generic offline fallback, shown only when Google Maps is not configured. With
+// a Maps key, the live location-biased Places search replaces this entirely.
 export const COMMERCES: Commerce[] = [
-  { id: "ali", name: "Chez Ali", addr: "Av. Habib Bourguiba, Midoun" },
-  { id: "hamadi", name: "Chez Hamadi — Grillades", addr: "Route de la plage, Djerba Houmt Souk" },
-  { id: "salem", name: "Chez Salem — Épicerie", addr: "Rue de la Liberté, Midoun" },
-  { id: "farhat", name: "Pâtisserie Farhat", addr: "Place Sidi Mahrez, Houmt Souk" },
-  { id: "pharma", name: "Pharmacie de la Corniche", addr: "Av. de la Corniche, Aghir" },
-  { id: "monoprix", name: "Monoprix Djerba", addr: "Zone touristique, Midoun" },
+  { id: "grill", name: "Le Grill du Coin — Grillades", addr: "Rue principale" },
+  { id: "bistrot", name: "Bistrot Central", addr: "Place du marché" },
+  { id: "primeur", name: "Le Primeur du Quartier", addr: "Rue du Commerce" },
+  { id: "boulangerie", name: "Boulangerie du Coin", addr: "Avenue de la Gare" },
+  { id: "pharma", name: "Pharmacie Centrale", addr: "Grande Rue" },
+  { id: "epicerie", name: "Épicerie du Marché", addr: "Boulevard de la République" },
 ];
 
 export function searchCommerces(query: string): Commerce[] {
@@ -53,13 +55,17 @@ export function closedLabel(now = new Date()): string {
 }
 
 export function openLabel(): string {
-  return `Ouvert jusqu'à ${CLOSE_HOUR}h · Djerba & Midoun`;
+  return `Ouvert jusqu'à ${CLOSE_HOUR}h · Livraison près de vous`;
 }
 
 // ---- Fees & delivery zone --------------------------------------
-// Midoun / Djerba reference point.
-const DJERBA = { lat: 33.808, lng: 10.995 };
-const ZONE_RADIUS_KM = 22; // covers the whole island + Midoun
+// The delivery zone is centred on the customer, not a fixed depot: their first
+// GPS fix becomes the reference point, and this fallback only applies when
+// geolocation is unavailable.
+export const DEFAULT_CENTER = { lat: 47.3941, lng: 0.6848 };
+const ZONE_RADIUS_KM = 15; // how far the pin may drift from the customer's area
+/** Longest commerce→customer road distance we will deliver. */
+export const MAX_DELIVERY_KM = ZONE_RADIUS_KM;
 const BASE_FEE = 2.5;
 const FEE_PER_KM = 0.6;
 const MIN_FEE = 3;
@@ -79,7 +85,7 @@ function haversineKm(
   return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
 }
 
-/** Tunisian number formatting: comma decimal separator. */
+/** French number formatting: comma decimal separator (e.g. "3,5"). */
 export function formatDT(n: number): string {
   return n.toFixed(1).replace(".", ",");
 }
@@ -102,45 +108,36 @@ export type ZoneResult =
   | { inZone: false };
 
 /**
- * Decide zone + estimated fee from a coordinate alone.
- *
- * Straight-line, so it needs no API call and no commerce: it runs the instant
- * the customer shares their position. The zone verdict is final; the fee is
- * only an estimate, refined by the road-distance quote once a commerce with
- * coordinates is known (see POST /api/quote).
+ * Decide zone + estimated fee for a pin, relative to the customer's own area
+ * (`center` — their first GPS fix). Straight-line, so it needs no API call and
+ * no commerce: it runs the instant the customer shares their position. The zone
+ * verdict is final; the fee is only an estimate, refined by the road-distance
+ * quote once a commerce with coordinates is known (see POST /api/quote).
  */
-export function evaluatePosition(pos: { lat: number; lng: number }): ZoneResult {
-  const distanceKm = haversineKm(DJERBA, pos);
+export function evaluatePosition(
+  pos: { lat: number; lng: number },
+  center: { lat: number; lng: number } = DEFAULT_CENTER,
+): ZoneResult {
+  const distanceKm = haversineKm(center, pos);
   if (distanceKm > ZONE_RADIUS_KM) return { inZone: false };
   return { inZone: true, distanceKm: Math.max(0.5, distanceKm), fee: feeForKm(distanceKm) };
 }
 
-/** True when a coordinate is inside the delivery zone. Used server-side too. */
-export function isInZone(pos: { lat: number; lng: number }): boolean {
-  return haversineKm(DJERBA, pos) <= ZONE_RADIUS_KM;
+/** True when a pin is within the delivery radius of the customer's area. */
+export function isInZone(
+  pos: { lat: number; lng: number },
+  center: { lat: number; lng: number } = DEFAULT_CENTER,
+): boolean {
+  return haversineKm(center, pos) <= ZONE_RADIUS_KM;
 }
 
-/** Fallback position inside Djerba (used when geolocation is unavailable). */
-export function simulatedDjerbaPosition(): { lat: number; lng: number } {
-  // ~3.2 km from the reference point, always in zone — keeps the happy path working.
-  return { lat: DJERBA.lat + 0.025, lng: DJERBA.lng + 0.012 };
+/** Fallback position (used when geolocation is denied/unavailable). */
+export function fallbackPosition(): { lat: number; lng: number } {
+  // ~2.9 km from the fallback centre, always in zone — keeps the happy path working.
+  return { lat: DEFAULT_CENTER.lat + 0.02, lng: DEFAULT_CENTER.lng + 0.015 };
 }
 
-// ---- Phone validation ------------------------------------------
-export function normalizePhone(raw: string): string {
-  return raw.replace(/\D/g, "").slice(0, 8);
-}
-
-export function isValidPhone(raw: string): boolean {
-  const digits = normalizePhone(raw);
-  return digits.length === 8 && /^[2459]/.test(digits);
-}
-
-export function formatPhone(raw: string): string {
-  const d = normalizePhone(raw);
-  // 22 483 921
-  return [d.slice(0, 2), d.slice(2, 5), d.slice(5, 8)].filter(Boolean).join(" ");
-}
+// Phone validation/formatting is country-aware and lives in ./phone.
 
 // ---- Persistence (returning customer + course counter) ---------
 const LAST_KEY = "ld:last-order";

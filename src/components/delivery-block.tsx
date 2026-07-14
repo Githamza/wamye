@@ -106,7 +106,7 @@ export function DeliveryBlock({
             </div>
           </div>
           <div className="text-[26px] font-extrabold tracking-[-0.01em] text-amber">
-            {formatDT(fee)} DT
+            {formatDT(fee)} €
           </div>
           <div className="text-xs text-stone-muted">
             {quoting
@@ -122,7 +122,7 @@ export function DeliveryBlock({
         <div className="anim-fade-up flex flex-col gap-1 rounded-xl border border-danger-border bg-danger-bg px-4 py-3.5">
           <div className="text-[15px] font-semibold text-danger">Hors zone de livraison</div>
           <div className="text-[14px] leading-normal text-danger-ink">
-            Désolé, cette adresse est hors de notre zone (Djerba uniquement)
+            Désolé, cette adresse est hors de notre zone (Tours uniquement)
           </div>
         </div>
       )}

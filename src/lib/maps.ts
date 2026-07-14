@@ -30,9 +30,13 @@ export function isMapsEnabled(): boolean {
 
 export { MAP_ID };
 
-// Djerba: island centre, and a hard bounding box for Places results.
-export const DJERBA_CENTER = { lat: 33.808, lng: 10.995 };
-const DJERBA_BOUNDS = { west: 10.72, south: 33.66, east: 11.1, north: 33.9 };
+// Last-resort map centre, only used when the customer's position is unknown
+// (geolocation denied and no pin yet). Everything real is driven by the live
+// GPS position instead — see searchPlaces() and MiniMap.
+export const DEFAULT_CENTER = { lat: 47.3941, lng: 0.6848 };
+
+// How far around the customer to look for deliverable commerces.
+const NEARBY_RADIUS_M = 15_000;
 
 // The bootstrap loader only ever loads once and warns if re-invoked, so
 // configure it at module scope rather than inside an effect (React StrictMode
@@ -40,7 +44,7 @@ const DJERBA_BOUNDS = { west: 10.72, south: 33.66, east: 11.1, north: 33.9 };
 let configured = false;
 function configure(): void {
   if (configured || !isMapsEnabled()) return;
-  setOptions({ key: BROWSER_KEY, v: "weekly", language: "fr", region: "TN" });
+  setOptions({ key: BROWSER_KEY, v: "weekly", language: "fr", region: "FR" });
   configured = true;
 }
 
@@ -48,6 +52,34 @@ export type MapsLibs = {
   Map: typeof google.maps.Map;
   AdvancedMarkerElement: typeof google.maps.marker.AdvancedMarkerElement;
 };
+
+/**
+ * Reverse-geocode a coordinate to its ISO country code (e.g. "FR"), so the
+ * phone input's dial code and validation can follow the customer's location.
+ * Returns null when Maps is unconfigured or Google returns no country — the
+ * caller then falls back to the device locale.
+ */
+export async function reverseGeocodeCountry(pos: {
+  lat: number;
+  lng: number;
+}): Promise<string | null> {
+  if (!isMapsEnabled()) return null;
+  try {
+    configure();
+    const { Geocoder } = await importLibrary("geocoding");
+    const { results } = await new Geocoder().geocode({ location: pos });
+    for (const result of results) {
+      const country = result.address_components.find((c) =>
+        c.types.includes("country"),
+      );
+      if (country?.short_name) return country.short_name.toUpperCase();
+    }
+    return null;
+  } catch (err) {
+    console.error("[maps] reverse geocode failed:", err);
+    return null;
+  }
+}
 
 /** Load the map + marker libraries. Safe to call repeatedly; loads once. */
 export async function loadMapLibs(): Promise<MapsLibs> {
@@ -102,24 +134,48 @@ async function placesLib() {
   return importLibrary("places");
 }
 
-/** Live commerce search, hard-restricted to the Djerba bounding box. */
-export async function searchPlaces(input: string): Promise<PlaceSuggestion[]> {
+export type NearbyOptions = {
+  /** The customer's position — search is biased here and ranked by distance. */
+  center?: { lat: number; lng: number } | null;
+  /** ISO country code (e.g. "FR") to keep results in the customer's country. */
+  countryCode?: string | null;
+};
+
+/**
+ * Live commerce search, biased to the customer's location so the nearest
+ * restaurants/shops surface first. When no position is known yet the search
+ * stays broad (optionally constrained to the detected country).
+ */
+export async function searchPlaces(
+  input: string,
+  { center, countryCode }: NearbyOptions = {},
+): Promise<PlaceSuggestion[]> {
   const q = input.trim();
   if (q === "" || !isMapsEnabled()) return [];
 
   const { AutocompleteSuggestion, AutocompleteSessionToken } = await placesLib();
   if (!sessionToken) sessionToken = new AutocompleteSessionToken();
 
-  const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
+  const params: google.maps.places.AutocompleteRequest = {
     input: q,
     sessionToken,
-    // Restrict (not just bias): a commerce outside Djerba is undeliverable.
-    locationRestriction: DJERBA_BOUNDS,
-    origin: DJERBA_CENTER,
-    includedRegionCodes: ["tn"],
     language: "fr",
-    region: "tn",
-  });
+  };
+  // Bias (not restrict) to a circle around the customer, and set the origin so
+  // suggestions come back ranked by straight-line distance from them.
+  if (center) {
+    params.locationBias = { center, radius: NEARBY_RADIUS_M };
+    params.origin = center;
+  }
+  // Keep results in-country when we know it — avoids proposing an undeliverable
+  // shop across a nearby border.
+  if (countryCode) {
+    params.includedRegionCodes = [countryCode.toLowerCase()];
+    params.region = countryCode.toLowerCase();
+  }
+
+  const { suggestions } =
+    await AutocompleteSuggestion.fetchAutocompleteSuggestions(params);
 
   return suggestions
     .map((s) => s.placePrediction)

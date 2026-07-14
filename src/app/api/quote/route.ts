@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { feeForKm, isInZone } from "@/lib/djerba";
+import { feeForKm, MAX_DELIVERY_KM } from "@/lib/djerba";
 import { computeDriveLeg, isConfigured, RoutesError } from "@/lib/routes";
 import type { QuoteInput, Quote } from "@/lib/order-types";
 
@@ -47,22 +47,22 @@ export async function POST(request: Request) {
     );
   }
 
-  // The client already checks this, but the fee is money: re-check server-side
-  // rather than trust a coordinate that arrived over the wire.
-  if (!isInZone(body.destination)) {
-    return NextResponse.json(
-      { error: "Adresse hors zone de livraison." },
-      { status: 422 },
-    );
-  }
-
   try {
     const leg = await computeDriveLeg(body.origin, body.destination);
 
-    // No drivable route (e.g. a pin dropped in the sea off Djerba).
+    // No drivable route (e.g. a pin dropped in the middle of a lake/river).
     if (!leg) {
       return NextResponse.json(
         { error: "Aucun itinéraire routier vers cette adresse." },
+        { status: 422 },
+      );
+    }
+
+    // The fee is money: re-check server-side that the commerce is close enough
+    // to deliver from, rather than trust a coordinate that arrived over the wire.
+    if (leg.distanceKm > MAX_DELIVERY_KM) {
+      return NextResponse.json(
+        { error: "Commerce trop loin de l'adresse de livraison." },
         { status: 422 },
       );
     }

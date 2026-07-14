@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createOrder, FleetbaseError, isConfigured } from "@/lib/fleetbase";
+import { isValidPhone } from "@/lib/phone";
 import type { CreateOrderInput } from "@/lib/order-types";
 
 // Order creation must always hit Fleetbase at request time.
@@ -13,8 +14,10 @@ function isValidBody(b: unknown): b is CreateOrderInput {
     o.order.trim() !== "" &&
     typeof o.commerceName === "string" &&
     o.commerceName.trim() !== "" &&
+    typeof o.country === "string" &&
     typeof o.phone === "string" &&
-    /^[2459]\d{7}$/.test(o.phone)
+    // Country-aware: the number must be valid for the customer's country.
+    isValidPhone(o.phone, o.country)
   );
 }
 

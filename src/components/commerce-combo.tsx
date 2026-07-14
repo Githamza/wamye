@@ -13,6 +13,10 @@ type Props = {
   describe: boolean;
   describeValue: string;
   onDescribeChange: (v: string) => void;
+  /** Customer position — search is biased here so nearby commerces surface first. */
+  position?: { lat: number; lng: number } | null;
+  /** Customer's ISO country, used to keep results in-country. */
+  country?: string | null;
 };
 
 /** A row in the dropdown, from Google Places or from the hardcoded fallback. */
@@ -32,6 +36,8 @@ export function CommerceCombo({
   describe,
   describeValue,
   onDescribeChange,
+  position,
+  country,
 }: Props) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -44,6 +50,11 @@ export function CommerceCombo({
 
   const places = isMapsEnabled();
   const q = query.trim();
+
+  // Depend on primitive lat/lng, not the position object, so a re-created object
+  // of the same coordinates doesn't re-fire the search effect.
+  const lat = position?.lat;
+  const lng = position?.lng;
 
   // Without a Maps key the hardcoded list is a pure function of the query, so
   // it needs no state and no effect.
@@ -59,7 +70,10 @@ export function CommerceCombo({
     const timer = window.setTimeout(async () => {
       setSearching(true);
       try {
-        const found = await searchPlaces(q);
+        const found = await searchPlaces(q, {
+          center: lat !== undefined && lng !== undefined ? { lat, lng } : null,
+          countryCode: country,
+        });
         if (seq.current !== id) return; // a newer keystroke won
         setPlaceRows(
           found.map((s) => ({
@@ -78,7 +92,7 @@ export function CommerceCombo({
     }, DEBOUNCE_MS);
 
     return () => window.clearTimeout(timer);
-  }, [q, places]);
+  }, [q, places, lat, lng, country]);
 
   async function pick(row: Row) {
     setOpen(false);
