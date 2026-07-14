@@ -23,7 +23,6 @@ import {
   saveLastOrder,
 } from "@/lib/djerba";
 import {
-  DEFAULT_COUNTRY,
   detectCountryFromLocale,
   formatPhone,
   isValidPhone,
@@ -31,6 +30,7 @@ import {
   phoneFormatFor,
 } from "@/lib/phone";
 import { reverseGeocodeCountry } from "@/lib/maps";
+import { AUTO_LOCATE, DELIVERY_CENTER, DELIVERY_COUNTRY } from "@/lib/config";
 import type { Quote } from "@/lib/order-types";
 
 type Screen = "order" | "confirm";
@@ -62,9 +62,10 @@ export default function Page() {
   const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null);
 
   // ---- location context ----
-  // The customer's country drives the phone dial code + validation. Seeded from
-  // the device locale, then refined by reverse-geocoding their GPS fix.
-  const [country, setCountry] = useState(DEFAULT_COUNTRY);
+  // The customer's country drives the phone dial code + validation. In fixed
+  // mode it is the configured country (France by default); in auto mode it is
+  // seeded from the device locale, then refined by reverse-geocoding the GPS fix.
+  const [country, setCountry] = useState(DELIVERY_COUNTRY);
   // The customer's first GPS fix — the centre the delivery zone is measured from.
   const homeCenter = useRef<{ lat: number; lng: number } | null>(null);
 
@@ -93,24 +94,28 @@ export default function Page() {
       setPrenom(last.prenom);
     }
 
-    // Country for the phone input: device locale now, refined by GPS below.
-    setCountry(detectCountryFromLocale());
-
-    // Ask for location on load so nearby commerces + the dial code follow the
-    // customer. Only while open (no point prompting behind the closed overlay);
-    // if denied, the locale country stands and the manual button remains.
-    if (openNow && typeof navigator !== "undefined" && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (p) => {
-          const pos = { lat: p.coords.latitude, lng: p.coords.longitude };
-          applyPosition(pos);
-          void reverseGeocodeCountry(pos).then((c) => c && setCountry(c));
-        },
-        () => {
-          /* denied / unavailable — keep locale country, wait for the button */
-        },
-        { timeout: 8000, maximumAge: 60000 },
-      );
+    if (AUTO_LOCATE) {
+      // Dynamic: seed the phone country from the device locale, then ask for
+      // location on load so nearby commerces + the dial code follow the customer
+      // (only while open; if denied, the locale country stands).
+      setCountry(detectCountryFromLocale());
+      if (openNow && typeof navigator !== "undefined" && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (p) => {
+            const pos = { lat: p.coords.latitude, lng: p.coords.longitude };
+            applyPosition(pos);
+            void reverseGeocodeCountry(pos).then((c) => c && setCountry(c));
+          },
+          () => {
+            /* denied / unavailable — keep locale country, wait for the button */
+          },
+          { timeout: 8000, maximumAge: 60000 },
+        );
+      }
+    } else if (openNow) {
+      // Fixed: pin to the configured home (France / Tours) so the zone, nearby
+      // search and dial code are that city, regardless of the browser locale.
+      applyPosition(DELIVERY_CENTER);
     }
 
     const onPrompt = (e: Event) => {

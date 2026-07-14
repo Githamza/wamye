@@ -1,6 +1,8 @@
 // ============================================================
-// Livraison Tours — domain logic
+// Livraison — domain logic
 // ============================================================
+
+import { DELIVERY_CENTER } from "@/lib/config";
 
 export type Commerce = {
   id: string;
@@ -59,10 +61,10 @@ export function openLabel(): string {
 }
 
 // ---- Fees & delivery zone --------------------------------------
-// The delivery zone is centred on the customer, not a fixed depot: their first
-// GPS fix becomes the reference point, and this fallback only applies when
-// geolocation is unavailable.
-export const DEFAULT_CENTER = { lat: 47.3941, lng: 0.6848 };
+// In "auto" mode the zone is centred on the customer's first GPS fix; this
+// configured centre (France / Tours by default) is the fallback, and the
+// pinned home in "fixed" mode.
+export const DEFAULT_CENTER = DELIVERY_CENTER;
 const ZONE_RADIUS_KM = 15; // how far the pin may drift from the customer's area
 /** Longest commerce→customer road distance we will deliver. */
 export const MAX_DELIVERY_KM = ZONE_RADIUS_KM;

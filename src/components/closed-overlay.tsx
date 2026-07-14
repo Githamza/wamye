@@ -10,13 +10,17 @@ import {
   normalizePhone,
   phoneFormatFor,
 } from "@/lib/phone";
+import { AUTO_LOCATE, DELIVERY_COUNTRY } from "@/lib/config";
 
 export function ClosedOverlay({ title }: { title: string }) {
   const [phone, setPhone] = useState("");
   // This overlay only mounts client-side (gated on `mounted` in the page), so
-  // reading the locale here can't cause a hydration mismatch. Locale-only —
-  // the app is closed, so there is no GPS fix to reverse-geocode.
-  const [country] = useState(detectCountryFromLocale);
+  // reading the locale here can't cause a hydration mismatch. Fixed mode uses
+  // the configured country; auto mode falls back to the device locale (no GPS
+  // while closed).
+  const [country] = useState(() =>
+    AUTO_LOCATE ? detectCountryFromLocale() : DELIVERY_COUNTRY,
+  );
   const pf = phoneFormatFor(country);
   const valid = isValidPhone(phone, country);
 
