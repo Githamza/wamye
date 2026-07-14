@@ -3,11 +3,22 @@
 import { useState } from "react";
 import { Moon } from "lucide-react";
 import { toast } from "sonner";
-import { formatPhone, isValidPhone, normalizePhone } from "@/lib/djerba";
+import {
+  detectCountryFromLocale,
+  formatPhone,
+  isValidPhone,
+  normalizePhone,
+  phoneFormatFor,
+} from "@/lib/phone";
 
 export function ClosedOverlay({ title }: { title: string }) {
   const [phone, setPhone] = useState("");
-  const valid = isValidPhone(phone);
+  // This overlay only mounts client-side (gated on `mounted` in the page), so
+  // reading the locale here can't cause a hydration mismatch. Locale-only —
+  // the app is closed, so there is no GPS fix to reverse-geocode.
+  const [country] = useState(detectCountryFromLocale);
+  const pf = phoneFormatFor(country);
+  const valid = isValidPhone(phone, country);
 
   return (
     <div className="anim-fade-in absolute inset-0 z-20 flex items-center justify-center bg-[rgba(28,25,23,0.30)] p-6">
@@ -23,13 +34,13 @@ export function ClosedOverlay({ title }: { title: string }) {
         </div>
         <div className="flex h-12 w-full items-stretch overflow-hidden rounded-[10px] border border-hair">
           <div className="flex flex-none items-center border-r border-hair bg-hair-2 px-3 text-[15px] text-stone-muted">
-            +33
+            {pf.dialCode}
           </div>
           <input
-            value={formatPhone(phone)}
-            onChange={(e) => setPhone(normalizePhone(e.target.value))}
+            value={formatPhone(phone, country)}
+            onChange={(e) => setPhone(normalizePhone(e.target.value, country))}
             inputMode="numeric"
-            placeholder="06 12 34 56 78"
+            placeholder={pf.example}
             aria-label="Téléphone"
             className="min-w-0 flex-1 bg-white px-3.5 text-[15px] text-stone-ink outline-none"
           />

@@ -10,14 +10,14 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Livraison Tours — Commander",
+  title: "Livraison Express — Commander",
   description:
-    "Commandez repas, courses et livraisons à Tours & son agglomération. Un livreur confirme le prix avant achat, vous payez à la livraison.",
+    "Commandez repas, courses et livraisons près de chez vous. Un livreur confirme le prix avant achat, vous payez à la livraison.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Livraison Tours",
+    title: "Livraison Express",
   },
 };
 

@@ -1,7 +1,7 @@
 {
-  "name": "Livraison Tours",
-  "short_name": "Livraison Tours",
-  "description": "Commandez repas, courses et livraisons à Tours & son agglomération.",
+  "name": "Livraison Express",
+  "short_name": "Livraison Express",
+  "description": "Commandez repas, courses et livraisons près de chez vous.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FAFAF9",

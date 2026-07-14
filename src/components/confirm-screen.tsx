@@ -221,7 +221,7 @@ export function ConfirmScreen({
       {showPwa && (
         <div className="anim-fade-up flex flex-none items-center gap-3 border-t border-brand-border bg-brand-bg px-4 pb-[calc(24px+env(safe-area-inset-bottom,0px))] pt-3.5">
           <div className="flex-1 text-[13px] leading-snug text-brand-ink">
-            Ajoutez Livraison Tours à votre écran d&apos;accueil pour recommander en 2 taps
+            Ajoutez Livraison Express à votre écran d&apos;accueil pour recommander en 2 taps
           </div>
           <button
             type="button"

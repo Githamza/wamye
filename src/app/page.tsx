@@ -14,17 +14,23 @@ import {
   type LastOrder,
   closedLabel,
   evaluatePosition,
+  fallbackPosition,
   formatDT,
-  formatPhone,
   isOpenNow,
-  isValidPhone,
   loadLastOrder,
   nextCourseNumber,
-  normalizePhone,
   openLabel,
   saveLastOrder,
-  simulatedToursPosition,
 } from "@/lib/djerba";
+import {
+  DEFAULT_COUNTRY,
+  detectCountryFromLocale,
+  formatPhone,
+  isValidPhone,
+  normalizePhone,
+  phoneFormatFor,
+} from "@/lib/phone";
+import { reverseGeocodeCountry } from "@/lib/maps";
 import type { Quote } from "@/lib/order-types";
 
 type Screen = "order" | "confirm";
@@ -55,6 +61,13 @@ export default function Page() {
   const [quoting, setQuoting] = useState(false);
   const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null);
 
+  // ---- location context ----
+  // The customer's country drives the phone dial code + validation. Seeded from
+  // the device locale, then refined by reverse-geocoding their GPS fix.
+  const [country, setCountry] = useState(DEFAULT_COUNTRY);
+  // The customer's first GPS fix — the centre the delivery zone is measured from.
+  const homeCenter = useRef<{ lat: number; lng: number } | null>(null);
+
   // ---- screen / meta state ----
   const [screen, setScreen] = useState<Screen>("order");
   const [courseNumber, setCourseNumber] = useState(47);
@@ -71,13 +84,35 @@ export default function Page() {
   // ---- effects ----
   useEffect(() => {
     setMounted(true);
-    setOpen(isOpenNow());
+    const openNow = isOpenNow();
+    setOpen(openNow);
     const last = loadLastOrder();
     if (last) {
       setReturning(last);
       setPhone(last.phone);
       setPrenom(last.prenom);
     }
+
+    // Country for the phone input: device locale now, refined by GPS below.
+    setCountry(detectCountryFromLocale());
+
+    // Ask for location on load so nearby commerces + the dial code follow the
+    // customer. Only while open (no point prompting behind the closed overlay);
+    // if denied, the locale country stands and the manual button remains.
+    if (openNow && typeof navigator !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (p) => {
+          const pos = { lat: p.coords.latitude, lng: p.coords.longitude };
+          applyPosition(pos);
+          void reverseGeocodeCountry(pos).then((c) => c && setCountry(c));
+        },
+        () => {
+          /* denied / unavailable — keep locale country, wait for the button */
+        },
+        { timeout: 8000, maximumAge: 60000 },
+      );
+    }
+
     const onPrompt = (e: Event) => {
       e.preventDefault();
       installPrompt.current = e as InstallPromptEvent;
@@ -139,7 +174,8 @@ export default function Page() {
   // ---- derived ----
   const commerceLabel = describe ? describeText.trim() : commerce?.name ?? "";
   const hasCommerce = commerceLabel !== "";
-  const phoneValid = isValidPhone(phone);
+  const pf = phoneFormatFor(country);
+  const phoneValid = isValidPhone(phone, country);
 
   const missing = useMemo<string | null>(() => {
     if (deliveryStatus === "outzone") return "adresse hors zone de livraison";
@@ -165,11 +201,15 @@ export default function Page() {
    */
   function applyPosition(pos: { lat: number; lng: number }) {
     setPosition(pos);
+    // The first position applied (GPS on load, or the button) anchors the
+    // delivery zone; later pin drags are measured against that same centre.
+    if (!homeCenter.current) homeCenter.current = pos;
+
     // Any new coordinate invalidates the previous road quote.
     setDurationMin(null);
     setQuoteSource("estimate");
 
-    const res = evaluatePosition(pos);
+    const res = evaluatePosition(pos, homeCenter.current);
     if (res.inZone) {
       setFee(res.fee);
       setDistanceKm(res.distanceKm);
@@ -190,12 +230,16 @@ export default function Page() {
 
     if (typeof navigator !== "undefined" && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (p) => finish({ lat: p.coords.latitude, lng: p.coords.longitude }),
-        () => finish(simulatedToursPosition()), // denied / unavailable → fall back in-zone
+        (p) => {
+          const pos = { lat: p.coords.latitude, lng: p.coords.longitude };
+          finish(pos);
+          void reverseGeocodeCountry(pos).then((c) => c && setCountry(c));
+        },
+        () => finish(fallbackPosition()), // denied / unavailable → fall back in-zone
         { timeout: 6000, maximumAge: 60000 },
       );
     } else {
-      finish(simulatedToursPosition());
+      finish(fallbackPosition());
     }
   }
 
@@ -225,6 +269,7 @@ export default function Page() {
               : null,
           repere: repere.trim(),
           phone,
+          country,
           prenom: prenom.trim(),
           fee,
           distanceKm,
@@ -305,14 +350,14 @@ export default function Page() {
             🛵
           </div>
           <div>
-            <div className="text-base font-semibold text-stone-ink">Livraison Tours</div>
+            <div className="text-base font-semibold text-stone-ink">Livraison Express</div>
             <div className="mt-0.5 flex items-center gap-1.5 text-[13px] text-stone-muted">
               <span
                 className={`size-2 rounded-full ${
                   isOpen ? "animate-pulse-dot bg-success" : "bg-stone-faint"
                 }`}
               />
-              {isOpen ? openLabel() : "Fermé · Tours & agglomération"}
+              {isOpen ? openLabel() : "Fermé · Livraison près de vous"}
             </div>
           </div>
         </header>
@@ -371,6 +416,8 @@ export default function Page() {
                   describe={describe}
                   describeValue={describeText}
                   onDescribeChange={setDescribeText}
+                  position={position}
+                  country={country}
                 />
                 <button
                   type="button"
@@ -414,16 +461,17 @@ export default function Page() {
                     phoneFocus ? "border-brand ring-[3px] ring-brand/15" : "border-hair"
                   }`}
                 >
-                  <div className="flex flex-none items-center border-r border-hair bg-hair-2 px-3 text-[15px] text-stone-muted">
-                    +33
+                  <div className="flex flex-none items-center gap-1 border-r border-hair bg-hair-2 px-3 text-[15px] text-stone-muted">
+                    <span>{pf.flag}</span>
+                    {pf.dialCode}
                   </div>
                   <input
-                    value={formatPhone(phone)}
-                    onChange={(e) => setPhone(normalizePhone(e.target.value))}
+                    value={formatPhone(phone, country)}
+                    onChange={(e) => setPhone(normalizePhone(e.target.value, country))}
                     onFocus={() => setPhoneFocus(true)}
                     onBlur={() => setPhoneFocus(false)}
                     inputMode="numeric"
-                    placeholder="06 12 34 56 78"
+                    placeholder={pf.example}
                     aria-label="Téléphone"
                     className="min-w-0 flex-1 bg-white px-3.5 pr-10 text-[15px] text-stone-ink outline-none"
                   />
@@ -473,7 +521,7 @@ export default function Page() {
             order={order.trim()}
             commerceName={commerceLabel}
             fee={fee}
-            onProblem={() => toast("Écrivez-nous sur WhatsApp au +33 6 12 34 56 78")}
+            onProblem={() => toast("Écrivez-nous sur WhatsApp, on vous répond vite")}
             onInstall={handleInstall}
             showPwa={showPwa}
             onDismissPwa={() => setShowPwa(false)}

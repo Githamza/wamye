@@ -20,6 +20,7 @@ import type {
   OrderStage,
   OrderStatus,
 } from "@/lib/order-types";
+import { toE164 } from "@/lib/phone";
 
 const API_URL = (process.env.FLEETBASE_API_URL ?? "http://91.134.240.158").replace(
   /\/+$/,
@@ -123,15 +124,15 @@ function readDriverAssigned(o: FleetbaseOrder): boolean {
   return d != null && d !== "" && d !== false;
 }
 
-/** Build the FleetOps order payload from a Tours order. */
+/** Build the FleetOps order payload from a customer order. */
 function buildPayload(input: CreateOrderInput): Record<string, unknown> {
-  // French E.164: drop the trunk "0" and prefix +33 (e.g. 0612… → +33612…).
-  const phoneIntl = `+33${input.phone.replace(/^0/, "")}`;
+  // E.164 for the customer's country (e.g. FR: 0612… → +33612…).
+  const phoneIntl = toE164(input.phone, input.country);
 
   const pickup: Record<string, unknown> = {
     name: input.commerceName,
     street1: input.commerceAddr?.trim() || input.commerceName,
-    country: "FR",
+    country: input.country,
   };
   // Exact pickup coordinates, when the commerce was picked from Google Places.
   // Without this the driver only gets a street string to interpret.
@@ -146,7 +147,7 @@ function buildPayload(input: CreateOrderInput): Record<string, unknown> {
     name: input.prenom?.trim() || "Client",
     street1: input.repere?.trim() || "Position GPS partagée par le client",
     phone: phoneIntl,
-    country: "FR",
+    country: input.country,
   };
   // Attach the exact drop coordinates as a GeoJSON Point (Fleetbase's
   // Point cast accepts GeoJSON directly — no geocoder required).
@@ -170,7 +171,7 @@ function buildPayload(input: CreateOrderInput): Record<string, unknown> {
       .filter(Boolean)
       .join("\n"),
     meta: {
-      source: "livraison-tours-web",
+      source: "livraison-web",
       commerce: input.commerceName,
       phone: phoneIntl,
       prenom: input.prenom ?? "",

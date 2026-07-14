@@ -15,13 +15,15 @@ export type Commerce = {
   lng?: number;
 };
 
+// Generic offline fallback, shown only when Google Maps is not configured. With
+// a Maps key, the live location-biased Places search replaces this entirely.
 export const COMMERCES: Commerce[] = [
-  { id: "bigard", name: "Chez Bigard — Grillades", addr: "Rue Colbert, Tours" },
-  { id: "leon", name: "Léon de Tours — Bistrot", addr: "Place Plumereau, Tours" },
-  { id: "primeur", name: "Le Primeur du Vieux Tours", addr: "Rue du Grand Marché, Tours" },
-  { id: "briand", name: "Boulangerie Briand", addr: "Av. de Grammont, Tours" },
-  { id: "pharma", name: "Pharmacie de la Loire", addr: "Quai d'Orléans, Tours" },
-  { id: "monoprix", name: "Monoprix Tours Centre", addr: "Rue Nationale, Tours" },
+  { id: "grill", name: "Le Grill du Coin — Grillades", addr: "Rue principale" },
+  { id: "bistrot", name: "Bistrot Central", addr: "Place du marché" },
+  { id: "primeur", name: "Le Primeur du Quartier", addr: "Rue du Commerce" },
+  { id: "boulangerie", name: "Boulangerie du Coin", addr: "Avenue de la Gare" },
+  { id: "pharma", name: "Pharmacie Centrale", addr: "Grande Rue" },
+  { id: "epicerie", name: "Épicerie du Marché", addr: "Boulevard de la République" },
 ];
 
 export function searchCommerces(query: string): Commerce[] {
@@ -53,13 +55,17 @@ export function closedLabel(now = new Date()): string {
 }
 
 export function openLabel(): string {
-  return `Ouvert jusqu'à ${CLOSE_HOUR}h · Tours & agglomération`;
+  return `Ouvert jusqu'à ${CLOSE_HOUR}h · Livraison près de vous`;
 }
 
 // ---- Fees & delivery zone --------------------------------------
-// Tours (Indre-et-Loire) reference point — place Jean Jaurès.
-const TOURS = { lat: 47.3941, lng: 0.6848 };
-const ZONE_RADIUS_KM = 15; // covers Tours + agglomération (Joué, Saint-Cyr, Saint-Avertin…)
+// The delivery zone is centred on the customer, not a fixed depot: their first
+// GPS fix becomes the reference point, and this fallback only applies when
+// geolocation is unavailable.
+export const DEFAULT_CENTER = { lat: 47.3941, lng: 0.6848 };
+const ZONE_RADIUS_KM = 15; // how far the pin may drift from the customer's area
+/** Longest commerce→customer road distance we will deliver. */
+export const MAX_DELIVERY_KM = ZONE_RADIUS_KM;
 const BASE_FEE = 2.5;
 const FEE_PER_KM = 0.6;
 const MIN_FEE = 3;
@@ -102,47 +108,36 @@ export type ZoneResult =
   | { inZone: false };
 
 /**
- * Decide zone + estimated fee from a coordinate alone.
- *
- * Straight-line, so it needs no API call and no commerce: it runs the instant
- * the customer shares their position. The zone verdict is final; the fee is
- * only an estimate, refined by the road-distance quote once a commerce with
- * coordinates is known (see POST /api/quote).
+ * Decide zone + estimated fee for a pin, relative to the customer's own area
+ * (`center` — their first GPS fix). Straight-line, so it needs no API call and
+ * no commerce: it runs the instant the customer shares their position. The zone
+ * verdict is final; the fee is only an estimate, refined by the road-distance
+ * quote once a commerce with coordinates is known (see POST /api/quote).
  */
-export function evaluatePosition(pos: { lat: number; lng: number }): ZoneResult {
-  const distanceKm = haversineKm(TOURS, pos);
+export function evaluatePosition(
+  pos: { lat: number; lng: number },
+  center: { lat: number; lng: number } = DEFAULT_CENTER,
+): ZoneResult {
+  const distanceKm = haversineKm(center, pos);
   if (distanceKm > ZONE_RADIUS_KM) return { inZone: false };
   return { inZone: true, distanceKm: Math.max(0.5, distanceKm), fee: feeForKm(distanceKm) };
 }
 
-/** True when a coordinate is inside the delivery zone. Used server-side too. */
-export function isInZone(pos: { lat: number; lng: number }): boolean {
-  return haversineKm(TOURS, pos) <= ZONE_RADIUS_KM;
+/** True when a pin is within the delivery radius of the customer's area. */
+export function isInZone(
+  pos: { lat: number; lng: number },
+  center: { lat: number; lng: number } = DEFAULT_CENTER,
+): boolean {
+  return haversineKm(center, pos) <= ZONE_RADIUS_KM;
 }
 
-/** Fallback position inside Tours (used when geolocation is unavailable). */
-export function simulatedToursPosition(): { lat: number; lng: number } {
-  // ~2.9 km from the reference point, always in zone — keeps the happy path working.
-  return { lat: TOURS.lat + 0.02, lng: TOURS.lng + 0.015 };
+/** Fallback position (used when geolocation is denied/unavailable). */
+export function fallbackPosition(): { lat: number; lng: number } {
+  // ~2.9 km from the fallback centre, always in zone — keeps the happy path working.
+  return { lat: DEFAULT_CENTER.lat + 0.02, lng: DEFAULT_CENTER.lng + 0.015 };
 }
 
-// ---- Phone validation ------------------------------------------
-// French numbers: 10 digits with a leading 0 (e.g. 06 12 34 56 78).
-export function normalizePhone(raw: string): string {
-  return raw.replace(/\D/g, "").slice(0, 10);
-}
-
-export function isValidPhone(raw: string): boolean {
-  const digits = normalizePhone(raw);
-  // 10 digits, leading 0, then a valid area/mobile prefix 1-9.
-  return digits.length === 10 && /^0[1-9]/.test(digits);
-}
-
-export function formatPhone(raw: string): string {
-  const d = normalizePhone(raw);
-  // 06 12 34 56 78 — groups of two.
-  return (d.match(/.{1,2}/g) ?? []).join(" ");
-}
+// Phone validation/formatting is country-aware and lives in ./phone.
 
 // ---- Persistence (returning customer + course counter) ---------
 const LAST_KEY = "ld:last-order";
