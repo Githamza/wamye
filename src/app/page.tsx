@@ -23,7 +23,7 @@ import {
   normalizePhone,
   openLabel,
   saveLastOrder,
-  simulatedDjerbaPosition,
+  simulatedToursPosition,
 } from "@/lib/djerba";
 import type { Quote } from "@/lib/order-types";
 
@@ -154,7 +154,7 @@ export default function Page() {
   const ctaLabel = submitting
     ? "Envoi…"
     : canSubmit && fee !== null
-      ? `Commander · Livraison ${formatDT(fee)} DT`
+      ? `Commander · Livraison ${formatDT(fee)} €`
       : "Commander";
 
   // ---- handlers ----
@@ -191,11 +191,11 @@ export default function Page() {
     if (typeof navigator !== "undefined" && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (p) => finish({ lat: p.coords.latitude, lng: p.coords.longitude }),
-        () => finish(simulatedDjerbaPosition()), // denied / unavailable → fall back in-zone
+        () => finish(simulatedToursPosition()), // denied / unavailable → fall back in-zone
         { timeout: 6000, maximumAge: 60000 },
       );
     } else {
-      finish(simulatedDjerbaPosition());
+      finish(simulatedToursPosition());
     }
   }
 
@@ -305,14 +305,14 @@ export default function Page() {
             🛵
           </div>
           <div>
-            <div className="text-base font-semibold text-stone-ink">Livraison Djerba</div>
+            <div className="text-base font-semibold text-stone-ink">Livraison Tours</div>
             <div className="mt-0.5 flex items-center gap-1.5 text-[13px] text-stone-muted">
               <span
                 className={`size-2 rounded-full ${
                   isOpen ? "animate-pulse-dot bg-success" : "bg-stone-faint"
                 }`}
               />
-              {isOpen ? openLabel() : "Fermé · Djerba & Midoun"}
+              {isOpen ? openLabel() : "Fermé · Tours & agglomération"}
             </div>
           </div>
         </header>
@@ -415,7 +415,7 @@ export default function Page() {
                   }`}
                 >
                   <div className="flex flex-none items-center border-r border-hair bg-hair-2 px-3 text-[15px] text-stone-muted">
-                    +216
+                    +33
                   </div>
                   <input
                     value={formatPhone(phone)}
@@ -423,7 +423,7 @@ export default function Page() {
                     onFocus={() => setPhoneFocus(true)}
                     onBlur={() => setPhoneFocus(false)}
                     inputMode="numeric"
-                    placeholder="22 483 921"
+                    placeholder="06 12 34 56 78"
                     aria-label="Téléphone"
                     className="min-w-0 flex-1 bg-white px-3.5 pr-10 text-[15px] text-stone-ink outline-none"
                   />
@@ -473,7 +473,7 @@ export default function Page() {
             order={order.trim()}
             commerceName={commerceLabel}
             fee={fee}
-            onProblem={() => toast("Écrivez-nous sur WhatsApp au +216 22 483 921")}
+            onProblem={() => toast("Écrivez-nous sur WhatsApp au +33 6 12 34 56 78")}
             onInstall={handleInstall}
             showPwa={showPwa}
             onDismissPwa={() => setShowPwa(false)}

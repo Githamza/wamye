@@ -1,5 +1,5 @@
 // ============================================================
-// Livraison Djerba — domain logic
+// Livraison Tours — domain logic
 // ============================================================
 
 export type Commerce = {
@@ -16,12 +16,12 @@ export type Commerce = {
 };
 
 export const COMMERCES: Commerce[] = [
-  { id: "ali", name: "Chez Ali", addr: "Av. Habib Bourguiba, Midoun" },
-  { id: "hamadi", name: "Chez Hamadi — Grillades", addr: "Route de la plage, Djerba Houmt Souk" },
-  { id: "salem", name: "Chez Salem — Épicerie", addr: "Rue de la Liberté, Midoun" },
-  { id: "farhat", name: "Pâtisserie Farhat", addr: "Place Sidi Mahrez, Houmt Souk" },
-  { id: "pharma", name: "Pharmacie de la Corniche", addr: "Av. de la Corniche, Aghir" },
-  { id: "monoprix", name: "Monoprix Djerba", addr: "Zone touristique, Midoun" },
+  { id: "bigard", name: "Chez Bigard — Grillades", addr: "Rue Colbert, Tours" },
+  { id: "leon", name: "Léon de Tours — Bistrot", addr: "Place Plumereau, Tours" },
+  { id: "primeur", name: "Le Primeur du Vieux Tours", addr: "Rue du Grand Marché, Tours" },
+  { id: "briand", name: "Boulangerie Briand", addr: "Av. de Grammont, Tours" },
+  { id: "pharma", name: "Pharmacie de la Loire", addr: "Quai d'Orléans, Tours" },
+  { id: "monoprix", name: "Monoprix Tours Centre", addr: "Rue Nationale, Tours" },
 ];
 
 export function searchCommerces(query: string): Commerce[] {
@@ -53,13 +53,13 @@ export function closedLabel(now = new Date()): string {
 }
 
 export function openLabel(): string {
-  return `Ouvert jusqu'à ${CLOSE_HOUR}h · Djerba & Midoun`;
+  return `Ouvert jusqu'à ${CLOSE_HOUR}h · Tours & agglomération`;
 }
 
 // ---- Fees & delivery zone --------------------------------------
-// Midoun / Djerba reference point.
-const DJERBA = { lat: 33.808, lng: 10.995 };
-const ZONE_RADIUS_KM = 22; // covers the whole island + Midoun
+// Tours (Indre-et-Loire) reference point — place Jean Jaurès.
+const TOURS = { lat: 47.3941, lng: 0.6848 };
+const ZONE_RADIUS_KM = 15; // covers Tours + agglomération (Joué, Saint-Cyr, Saint-Avertin…)
 const BASE_FEE = 2.5;
 const FEE_PER_KM = 0.6;
 const MIN_FEE = 3;
@@ -79,7 +79,7 @@ function haversineKm(
   return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
 }
 
-/** Tunisian number formatting: comma decimal separator. */
+/** French number formatting: comma decimal separator (e.g. "3,5"). */
 export function formatDT(n: number): string {
   return n.toFixed(1).replace(".", ",");
 }
@@ -110,36 +110,38 @@ export type ZoneResult =
  * coordinates is known (see POST /api/quote).
  */
 export function evaluatePosition(pos: { lat: number; lng: number }): ZoneResult {
-  const distanceKm = haversineKm(DJERBA, pos);
+  const distanceKm = haversineKm(TOURS, pos);
   if (distanceKm > ZONE_RADIUS_KM) return { inZone: false };
   return { inZone: true, distanceKm: Math.max(0.5, distanceKm), fee: feeForKm(distanceKm) };
 }
 
 /** True when a coordinate is inside the delivery zone. Used server-side too. */
 export function isInZone(pos: { lat: number; lng: number }): boolean {
-  return haversineKm(DJERBA, pos) <= ZONE_RADIUS_KM;
+  return haversineKm(TOURS, pos) <= ZONE_RADIUS_KM;
 }
 
-/** Fallback position inside Djerba (used when geolocation is unavailable). */
-export function simulatedDjerbaPosition(): { lat: number; lng: number } {
-  // ~3.2 km from the reference point, always in zone — keeps the happy path working.
-  return { lat: DJERBA.lat + 0.025, lng: DJERBA.lng + 0.012 };
+/** Fallback position inside Tours (used when geolocation is unavailable). */
+export function simulatedToursPosition(): { lat: number; lng: number } {
+  // ~2.9 km from the reference point, always in zone — keeps the happy path working.
+  return { lat: TOURS.lat + 0.02, lng: TOURS.lng + 0.015 };
 }
 
 // ---- Phone validation ------------------------------------------
+// French numbers: 10 digits with a leading 0 (e.g. 06 12 34 56 78).
 export function normalizePhone(raw: string): string {
-  return raw.replace(/\D/g, "").slice(0, 8);
+  return raw.replace(/\D/g, "").slice(0, 10);
 }
 
 export function isValidPhone(raw: string): boolean {
   const digits = normalizePhone(raw);
-  return digits.length === 8 && /^[2459]/.test(digits);
+  // 10 digits, leading 0, then a valid area/mobile prefix 1-9.
+  return digits.length === 10 && /^0[1-9]/.test(digits);
 }
 
 export function formatPhone(raw: string): string {
   const d = normalizePhone(raw);
-  // 22 483 921
-  return [d.slice(0, 2), d.slice(2, 5), d.slice(5, 8)].filter(Boolean).join(" ");
+  // 06 12 34 56 78 — groups of two.
+  return (d.match(/.{1,2}/g) ?? []).join(" ");
 }
 
 // ---- Persistence (returning customer + course counter) ---------

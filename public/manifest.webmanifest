@@ -1,7 +1,7 @@
 {
-  "name": "Livraison Djerba",
-  "short_name": "Livraison Djerba",
-  "description": "Commandez repas, courses et livraisons à Djerba & Midoun.",
+  "name": "Livraison Tours",
+  "short_name": "Livraison Tours",
+  "description": "Commandez repas, courses et livraisons à Tours & son agglomération.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FAFAF9",

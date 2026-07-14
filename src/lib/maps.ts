@@ -30,9 +30,10 @@ export function isMapsEnabled(): boolean {
 
 export { MAP_ID };
 
-// Djerba: island centre, and a hard bounding box for Places results.
-export const DJERBA_CENTER = { lat: 33.808, lng: 10.995 };
-const DJERBA_BOUNDS = { west: 10.72, south: 33.66, east: 11.1, north: 33.9 };
+// Tours: city centre, and a hard bounding box for Places results
+// (covers Tours + the immediate agglomération).
+export const TOURS_CENTER = { lat: 47.3941, lng: 0.6848 };
+const TOURS_BOUNDS = { west: 0.55, south: 47.30, east: 0.80, north: 47.48 };
 
 // The bootstrap loader only ever loads once and warns if re-invoked, so
 // configure it at module scope rather than inside an effect (React StrictMode
@@ -40,7 +41,7 @@ const DJERBA_BOUNDS = { west: 10.72, south: 33.66, east: 11.1, north: 33.9 };
 let configured = false;
 function configure(): void {
   if (configured || !isMapsEnabled()) return;
-  setOptions({ key: BROWSER_KEY, v: "weekly", language: "fr", region: "TN" });
+  setOptions({ key: BROWSER_KEY, v: "weekly", language: "fr", region: "FR" });
   configured = true;
 }
 
@@ -102,7 +103,7 @@ async function placesLib() {
   return importLibrary("places");
 }
 
-/** Live commerce search, hard-restricted to the Djerba bounding box. */
+/** Live commerce search, hard-restricted to the Tours bounding box. */
 export async function searchPlaces(input: string): Promise<PlaceSuggestion[]> {
   const q = input.trim();
   if (q === "" || !isMapsEnabled()) return [];
@@ -113,12 +114,12 @@ export async function searchPlaces(input: string): Promise<PlaceSuggestion[]> {
   const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
     input: q,
     sessionToken,
-    // Restrict (not just bias): a commerce outside Djerba is undeliverable.
-    locationRestriction: DJERBA_BOUNDS,
-    origin: DJERBA_CENTER,
-    includedRegionCodes: ["tn"],
+    // Restrict (not just bias): a commerce outside Tours is undeliverable.
+    locationRestriction: TOURS_BOUNDS,
+    origin: TOURS_CENTER,
+    includedRegionCodes: ["fr"],
     language: "fr",
-    region: "tn",
+    region: "fr",
   });
 
   return suggestions

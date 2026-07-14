@@ -14,7 +14,7 @@ function isValidBody(b: unknown): b is CreateOrderInput {
     typeof o.commerceName === "string" &&
     o.commerceName.trim() !== "" &&
     typeof o.phone === "string" &&
-    /^[2459]\d{7}$/.test(o.phone)
+    /^0[1-9]\d{8}$/.test(o.phone)
   );
 }
 

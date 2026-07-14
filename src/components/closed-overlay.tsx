@@ -23,13 +23,13 @@ export function ClosedOverlay({ title }: { title: string }) {
         </div>
         <div className="flex h-12 w-full items-stretch overflow-hidden rounded-[10px] border border-hair">
           <div className="flex flex-none items-center border-r border-hair bg-hair-2 px-3 text-[15px] text-stone-muted">
-            +216
+            +33
           </div>
           <input
             value={formatPhone(phone)}
             onChange={(e) => setPhone(normalizePhone(e.target.value))}
             inputMode="numeric"
-            placeholder="22 483 921"
+            placeholder="06 12 34 56 78"
             aria-label="Téléphone"
             className="min-w-0 flex-1 bg-white px-3.5 text-[15px] text-stone-ink outline-none"
           />

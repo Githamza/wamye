@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   try {
     const leg = await computeDriveLeg(body.origin, body.destination);
 
-    // No drivable route (e.g. a pin dropped in the sea off Djerba).
+    // No drivable route (e.g. a pin dropped in the middle of the Loire).
     if (!leg) {
       return NextResponse.json(
         { error: "Aucun itinéraire routier vers cette adresse." },
