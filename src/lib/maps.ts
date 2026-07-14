@@ -17,6 +17,7 @@
 // ============================================================
 
 import { importLibrary, setOptions } from "@googlemaps/js-api-loader";
+import { DELIVERY_CENTER } from "@/lib/config";
 
 const BROWSER_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY ?? "";
 // Advanced markers refuse to render without a Map ID. Google's public test ID
@@ -30,10 +31,10 @@ export function isMapsEnabled(): boolean {
 
 export { MAP_ID };
 
-// Last-resort map centre, only used when the customer's position is unknown
-// (geolocation denied and no pin yet). Everything real is driven by the live
-// GPS position instead — see searchPlaces() and MiniMap.
-export const DEFAULT_CENTER = { lat: 47.3941, lng: 0.6848 };
+// Fallback map centre, used when the customer has no pin yet. In fixed mode
+// this is the configured home (France / Tours); in auto mode the live GPS
+// position drives everything instead — see searchPlaces() and MiniMap.
+export const DEFAULT_CENTER = DELIVERY_CENTER;
 
 // How far around the customer to look for deliverable commerces.
 const NEARBY_RADIUS_M = 15_000;
