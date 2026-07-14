@@ -30,6 +30,12 @@ const API_KEY = process.env.FLEETBASE_API_KEY ?? "";
 const ORDER_TYPE = process.env.FLEETBASE_ORDER_TYPE ?? "";
 // Whether to immediately dispatch (start the driver search) on creation.
 const DISPATCH = (process.env.FLEETBASE_DISPATCH ?? "true").toLowerCase() !== "false";
+// Ad-hoc orders are broadcast to every nearby available driver instead of
+// waiting for a manual assignment. Without this, `dispatch` only flips the
+// order to "dispatched" and it sits there with no driver forever.
+const ADHOC = (process.env.FLEETBASE_ADHOC ?? "true").toLowerCase() !== "false";
+// Broadcast radius in meters. Empty → Fleetbase's own default.
+const ADHOC_DISTANCE = process.env.FLEETBASE_ADHOC_DISTANCE ?? "";
 
 export class FleetbaseError extends Error {
   constructor(
@@ -173,8 +179,10 @@ function buildPayload(input: CreateOrderInput): Record<string, unknown> {
       distance_source: input.quoteSource ?? "estimate",
     },
     dispatch: DISPATCH,
+    adhoc: ADHOC,
   };
   if (ORDER_TYPE) payload.type = ORDER_TYPE;
+  if (ADHOC && ADHOC_DISTANCE) payload.adhoc_distance = Number(ADHOC_DISTANCE);
 
   return payload;
 }
