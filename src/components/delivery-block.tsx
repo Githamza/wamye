@@ -3,7 +3,7 @@
 import { Crosshair, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { MiniMap } from "@/components/mini-map";
-import { formatDT } from "@/lib/djerba";
+import { formatDT } from "@/lib/fees";
 
 export type DeliveryStatus = "idle" | "locating" | "ready" | "outzone";
 

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Moon } from "lucide-react";
 import { toast } from "sonner";
-import { formatPhone, isValidPhone, normalizePhone } from "@/lib/djerba";
+import { formatPhone, isValidPhone, normalizePhone } from "@/lib/phone";
 
 export function ClosedOverlay({ title }: { title: string }) {
   const [phone, setPhone] = useState("");

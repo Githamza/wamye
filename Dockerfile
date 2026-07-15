@@ -22,6 +22,13 @@ ARG NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY
 ENV NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY=$NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY
 ARG NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID
 ENV NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID=$NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID
+# Supabase URL + publishable (anon) key are read by client components, so they
+# must be inlined at build time too. Both are public (the anon key is RLS-gated);
+# the service-role key + APP_ENCRYPTION_KEY stay runtime-only secrets.
+ARG NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build

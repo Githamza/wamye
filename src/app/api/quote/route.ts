@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { feeForKm, isInZone } from "@/lib/djerba";
+import { feeForKm } from "@/lib/fees";
+import { isInZone } from "@/lib/geo";
+import { resolvePublicConfig } from "@/lib/tenant";
 import { computeDriveLeg, isConfigured, RoutesError } from "@/lib/routes";
 import type { QuoteInput, Quote } from "@/lib/order-types";
 
@@ -49,7 +51,11 @@ export async function POST(request: Request) {
 
   // The client already checks this, but the fee is money: re-check server-side
   // rather than trust a coordinate that arrived over the wire.
-  if (!isInZone(body.destination)) {
+  const slug =
+    request.headers.get("x-tenant-slug") ??
+    new URL(request.url).searchParams.get("slug");
+  const { zone, feeConfig } = await resolvePublicConfig(slug);
+  if (!isInZone(body.destination, zone)) {
     return NextResponse.json(
       { error: "Adresse hors zone de livraison." },
       { status: 422 },
@@ -70,7 +76,7 @@ export async function POST(request: Request) {
     const quote: Quote = {
       distanceKm: leg.distanceKm,
       durationMin: leg.durationMin,
-      fee: feeForKm(leg.distanceKm),
+      fee: feeForKm(leg.distanceKm, feeConfig),
       source: "road",
     };
     return NextResponse.json(quote);

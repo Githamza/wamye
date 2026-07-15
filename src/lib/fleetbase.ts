@@ -14,6 +14,7 @@
 //   entities = the free-text order, notes/meta carry the rest.
 // ============================================================
 
+import "server-only";
 import type {
   CreateOrderInput,
   CreatedOrder,
@@ -21,21 +22,39 @@ import type {
   OrderStatus,
 } from "@/lib/order-types";
 
-const API_URL = (process.env.FLEETBASE_API_URL ?? "http://91.134.240.158").replace(
-  /\/+$/,
-  "",
-);
-const API_KEY = process.env.FLEETBASE_API_KEY ?? "";
-// Fleetbase order-config key. Left empty → backend defaults to "default".
-const ORDER_TYPE = process.env.FLEETBASE_ORDER_TYPE ?? "";
-// Whether to immediately dispatch (start the driver search) on creation.
-const DISPATCH = (process.env.FLEETBASE_DISPATCH ?? "true").toLowerCase() !== "false";
-// Ad-hoc orders are broadcast to every nearby available driver instead of
-// waiting for a manual assignment. Without this, `dispatch` only flips the
-// order to "dispatched" and it sits there with no driver forever.
-const ADHOC = (process.env.FLEETBASE_ADHOC ?? "true").toLowerCase() !== "false";
-// Broadcast radius in meters. Empty → Fleetbase's own default.
-const ADHOC_DISTANCE = process.env.FLEETBASE_ADHOC_DISTANCE ?? "";
+/**
+ * Per-tenant Fleetbase credentials + dispatch config. One tenant maps to one
+ * Fleetbase company, so scoping an order to a company is a matter of using
+ * that company's API key — orders then only reach that company's drivers.
+ */
+export type FleetbaseContext = {
+  apiUrl: string;
+  apiKey: string;
+  orderType?: string;
+  dispatch: boolean;
+  adhoc: boolean;
+  /** Broadcast radius in meters; undefined → Fleetbase's own default. */
+  adhocDistance?: number;
+};
+
+/**
+ * Build a context from the legacy single-tenant env vars. Used as a fallback
+ * until a tenant's config is stored in the database (see tenant.ts), which
+ * keeps the app working exactly as before during the migration.
+ */
+export function envFleetbaseContext(): FleetbaseContext | null {
+  const apiKey = (process.env.FLEETBASE_API_KEY ?? "").trim();
+  if (!apiKey) return null;
+  const adhocDistanceRaw = process.env.FLEETBASE_ADHOC_DISTANCE ?? "";
+  return {
+    apiUrl: (process.env.FLEETBASE_API_URL ?? "http://91.134.240.158").replace(/\/+$/, ""),
+    apiKey,
+    orderType: process.env.FLEETBASE_ORDER_TYPE || undefined,
+    dispatch: (process.env.FLEETBASE_DISPATCH ?? "true").toLowerCase() !== "false",
+    adhoc: (process.env.FLEETBASE_ADHOC ?? "true").toLowerCase() !== "false",
+    adhocDistance: adhocDistanceRaw ? Number(adhocDistanceRaw) : undefined,
+  };
+}
 
 export class FleetbaseError extends Error {
   constructor(
@@ -47,11 +66,6 @@ export class FleetbaseError extends Error {
   }
 }
 
-/** True when a key is configured — routes can 503 cleanly otherwise. */
-export function isConfigured(): boolean {
-  return API_KEY.trim() !== "";
-}
-
 type FleetbaseOrder = {
   id?: string;
   public_id?: string;
@@ -61,18 +75,23 @@ type FleetbaseOrder = {
   errors?: string[];
 };
 
-async function request(path: string, init?: RequestInit): Promise<FleetbaseOrder> {
-  if (!isConfigured()) {
+async function request(
+  ctx: FleetbaseContext,
+  path: string,
+  init?: RequestInit,
+): Promise<FleetbaseOrder> {
+  if (!ctx.apiKey.trim()) {
     throw new FleetbaseError("Fleetbase API key is not configured", 503);
   }
 
+  const apiUrl = ctx.apiUrl.replace(/\/+$/, "");
   let res: Response;
   try {
-    res = await fetch(`${API_URL}${path}`, {
+    res = await fetch(`${apiUrl}${path}`, {
       ...init,
       cache: "no-store",
       headers: {
-        Authorization: `Bearer ${API_KEY}`,
+        Authorization: `Bearer ${ctx.apiKey}`,
         "Content-Type": "application/json",
         Accept: "application/json",
         ...(init?.headers ?? {}),
@@ -80,7 +99,7 @@ async function request(path: string, init?: RequestInit): Promise<FleetbaseOrder
     });
   } catch (cause) {
     throw new FleetbaseError(
-      `Cannot reach Fleetbase at ${API_URL}: ${(cause as Error).message}`,
+      `Cannot reach Fleetbase at ${apiUrl}: ${(cause as Error).message}`,
       502,
     );
   }
@@ -124,7 +143,10 @@ function readDriverAssigned(o: FleetbaseOrder): boolean {
 }
 
 /** Build the FleetOps order payload from a Djerba order. */
-function buildPayload(input: CreateOrderInput): Record<string, unknown> {
+function buildPayload(
+  input: CreateOrderInput,
+  ctx: FleetbaseContext,
+): Record<string, unknown> {
   const phoneIntl = `+216${input.phone}`;
 
   const pickup: Record<string, unknown> = {
@@ -178,43 +200,56 @@ function buildPayload(input: CreateOrderInput): Record<string, unknown> {
       // "road" = real driving distance; "estimate" = straight-line fallback.
       distance_source: input.quoteSource ?? "estimate",
     },
-    dispatch: DISPATCH,
-    adhoc: ADHOC,
+    dispatch: ctx.dispatch,
+    adhoc: ctx.adhoc,
   };
-  if (ORDER_TYPE) payload.type = ORDER_TYPE;
-  if (ADHOC && ADHOC_DISTANCE) payload.adhoc_distance = Number(ADHOC_DISTANCE);
+  if (ctx.orderType) payload.type = ctx.orderType;
+  if (ctx.adhoc && ctx.adhocDistance) payload.adhoc_distance = ctx.adhocDistance;
 
   return payload;
 }
 
-/** Create a delivery order in Fleetbase. */
-export async function createOrder(input: CreateOrderInput): Promise<CreatedOrder> {
-  const order = await request("/v1/orders", {
-    method: "POST",
-    body: JSON.stringify(buildPayload(input)),
-  });
-
-  const id = order.public_id ?? order.id;
-  if (!id) {
-    throw new FleetbaseError("Fleetbase did not return an order id", 502);
-  }
-
+/**
+ * A Fleetbase client bound to one tenant's company credentials. Build it per
+ * request from the resolved FleetbaseContext (see tenant.ts).
+ */
+export function createFleetbaseClient(ctx: FleetbaseContext) {
   return {
-    id,
-    trackingNumber: readTrackingNumber(order),
-    status: order.status ?? "created",
-    stage: statusToStage(order.status),
-  };
-}
+    /** Create a delivery order in this tenant's Fleetbase company. */
+    async createOrder(input: CreateOrderInput): Promise<CreatedOrder> {
+      const order = await request(ctx, "/v1/orders", {
+        method: "POST",
+        body: JSON.stringify(buildPayload(input, ctx)),
+      });
 
-/** Read a single order's current status for the tracking timeline. */
-export async function getOrder(id: string): Promise<OrderStatus> {
-  const order = await request(`/v1/orders/${encodeURIComponent(id)}`);
-  return {
-    id: order.public_id ?? order.id ?? id,
-    status: order.status ?? "created",
-    stage: statusToStage(order.status),
-    trackingNumber: readTrackingNumber(order),
-    driverAssigned: readDriverAssigned(order),
+      const id = order.public_id ?? order.id;
+      if (!id) {
+        throw new FleetbaseError("Fleetbase did not return an order id", 502);
+      }
+
+      return {
+        id,
+        trackingNumber: readTrackingNumber(order),
+        status: order.status ?? "created",
+        stage: statusToStage(order.status),
+      };
+    },
+
+    /** Read a single order's current status for the tracking timeline. */
+    async getOrder(id: string): Promise<OrderStatus> {
+      const order = await request(ctx, `/v1/orders/${encodeURIComponent(id)}`);
+      return {
+        id: order.public_id ?? order.id ?? id,
+        status: order.status ?? "created",
+        stage: statusToStage(order.status),
+        trackingNumber: readTrackingNumber(order),
+        driverAssigned: readDriverAssigned(order),
+      };
+    },
+
+    /** Cheap authenticated GET to validate the credentials ("Test connection"). */
+    async ping(): Promise<void> {
+      await request(ctx, "/v1/orders?limit=1");
+    },
   };
 }

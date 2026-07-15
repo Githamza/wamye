@@ -3,12 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Loader2, Store, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { type Commerce, searchCommerces } from "@/lib/djerba";
+import type { Commerce } from "@/lib/config-types";
+import { searchCommerces } from "@/lib/default-config";
 import { type PlaceSuggestion, isMapsEnabled, resolvePlace, searchPlaces } from "@/lib/maps";
 
 type Props = {
   selected: Commerce | null;
   onSelect: (c: Commerce | null) => void;
+  /** The tenant's commerce list, searched when Google Places is unavailable. */
+  commerces: Commerce[];
   /** free-text mode ("Introuvable ? Décrivez-le") */
   describe: boolean;
   describeValue: string;
@@ -29,6 +32,7 @@ const DEBOUNCE_MS = 250;
 export function CommerceCombo({
   selected,
   onSelect,
+  commerces,
   describe,
   describeValue,
   onDescribeChange,
@@ -47,7 +51,7 @@ export function CommerceCombo({
 
   // Without a Maps key the hardcoded list is a pure function of the query, so
   // it needs no state and no effect.
-  const rows: Row[] = places ? (q === "" ? [] : placeRows) : searchCommerces(q);
+  const rows: Row[] = places ? (q === "" ? [] : placeRows) : searchCommerces(commerces, q);
 
   useEffect(() => {
     if (!places || q === "") return;
@@ -71,14 +75,14 @@ export function CommerceCombo({
         );
       } catch (err) {
         console.error("[places] search failed:", err);
-        if (seq.current === id) setPlaceRows(searchCommerces(q)); // fall back to the local list
+        if (seq.current === id) setPlaceRows(searchCommerces(commerces, q)); // fall back to the local list
       } finally {
         if (seq.current === id) setSearching(false);
       }
     }, DEBOUNCE_MS);
 
     return () => window.clearTimeout(timer);
-  }, [q, places]);
+  }, [q, places, commerces]);
 
   async function pick(row: Row) {
     setOpen(false);

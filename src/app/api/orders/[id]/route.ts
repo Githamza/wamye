@@ -1,15 +1,21 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getOrder, FleetbaseError, isConfigured } from "@/lib/fleetbase";
+import { createFleetbaseClient, FleetbaseError } from "@/lib/fleetbase";
+import { resolveFleetbaseContext } from "@/lib/tenant";
 
 // Status polling is always request-time (never cached).
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   ctx: RouteContext<"/api/orders/[id]">,
 ) {
-  if (!isConfigured()) {
+  const slug =
+    request.headers.get("x-tenant-slug") ??
+    request.nextUrl.searchParams.get("slug");
+
+  const fbCtx = await resolveFleetbaseContext(slug);
+  if (!fbCtx) {
     return NextResponse.json(
       { error: "Le service de commande n'est pas configuré." },
       { status: 503 },
@@ -19,7 +25,7 @@ export async function GET(
   const { id } = await ctx.params;
 
   try {
-    const status = await getOrder(id);
+    const status = await createFleetbaseClient(fbCtx).getOrder(id);
     return NextResponse.json(status, {
       headers: { "Cache-Control": "no-store" },
     });

@@ -2,11 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { MessageCircle, X } from "lucide-react";
-import { formatDT } from "@/lib/djerba";
+import { formatDT } from "@/lib/fees";
 import type { OrderStage, OrderStatus } from "@/lib/order-types";
 
 type Props = {
   orderId?: string | null;
+  /** Tenant slug — carried on status polls so the server uses the right company. */
+  slug: string;
+  brandName?: string;
   courseNumber: number;
   order: string;
   commerceName: string;
@@ -52,6 +55,8 @@ function labelClass(step: OrderStage, stage: OrderStage): string {
 
 export function ConfirmScreen({
   orderId,
+  slug,
+  brandName,
   courseNumber,
   order,
   commerceName,
@@ -75,7 +80,10 @@ export function ConfirmScreen({
     async function poll() {
       attempts += 1;
       try {
-        const res = await fetch(`/api/orders/${orderId}`, { cache: "no-store" });
+        const res = await fetch(
+          `/api/orders/${orderId}?slug=${encodeURIComponent(slug)}`,
+          { cache: "no-store" },
+        );
         if (!res.ok) return;
         const data = (await res.json()) as OrderStatus;
         if (cancelled) return;
@@ -105,7 +113,7 @@ export function ConfirmScreen({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [orderId]);
+  }, [orderId, slug]);
 
   const delivered = stage === "delivered";
   const canceled = stage === "canceled";
@@ -221,7 +229,7 @@ export function ConfirmScreen({
       {showPwa && (
         <div className="anim-fade-up flex flex-none items-center gap-3 border-t border-brand-border bg-brand-bg px-4 pb-[calc(24px+env(safe-area-inset-bottom,0px))] pt-3.5">
           <div className="flex-1 text-[13px] leading-snug text-brand-ink">
-            Ajoutez Livraison Djerba à votre écran d&apos;accueil pour recommander en 2 taps
+            Ajoutez {brandName ?? "cette app"} à votre écran d&apos;accueil pour recommander en 2 taps
           </div>
           <button
             type="button"
