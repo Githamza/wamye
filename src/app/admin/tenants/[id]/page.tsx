@@ -1,0 +1,166 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { requireRole } from "@/lib/auth/dal";
+import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  approveTenant,
+  toggleTenantActive,
+  updateTenantFleetbase,
+} from "@/lib/actions/tenants";
+import { TestConnectionButton } from "@/components/test-connection-button";
+
+export const dynamic = "force-dynamic";
+
+const input =
+  "h-11 w-full rounded-[10px] border border-hair px-3.5 text-[15px] outline-none focus:border-brand";
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-[13px] font-medium text-stone-muted2">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  pending: "En attente",
+  active: "Actif",
+  suspended: "Suspendu",
+};
+
+export default async function TenantDetailPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ saved?: string }>;
+}) {
+  await requireRole("super_admin");
+  const { id } = await props.params;
+  const { saved } = await props.searchParams;
+
+  const supabase = createAdminClient();
+  const { data: t } = await supabase
+    .from("tenants")
+    .select(
+      "id, slug, name, status, is_active, fleetbase_api_url, fleetbase_order_type, fleetbase_adhoc_distance",
+    )
+    .eq("id", id)
+    .maybeSingle();
+  if (!t) notFound();
+
+  const { data: secret } = await supabase
+    .from("tenant_secrets")
+    .select("tenant_id")
+    .eq("tenant_id", id)
+    .maybeSingle();
+  const hasKey = Boolean(secret);
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex items-center gap-2 text-[13px] text-stone-muted">
+        <Link href="/admin" className="text-brand hover:underline">
+          Tenants
+        </Link>
+        <span>/</span>
+        <span>{t.name}</span>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-semibold text-stone-ink">{t.name}</h1>
+          <span className="rounded-full bg-hair px-2 py-0.5 text-[11px] text-stone-muted2">
+            {STATUS_LABEL[t.status] ?? t.status}
+          </span>
+        </div>
+        <Link href={`/t/${t.slug}`} className="text-[13px] text-brand underline underline-offset-2">
+          /t/{t.slug}
+        </Link>
+      </div>
+
+      {saved && (
+        <div className="rounded-[10px] border border-brand-border bg-brand-bg px-4 py-2.5 text-[13px] text-brand-ink">
+          Connexion Fleetbase enregistrée.
+        </div>
+      )}
+
+      {/* APPROVAL */}
+      {t.status === "pending" && (
+        <div className="flex flex-col gap-3 rounded-[14px] border border-hair bg-white p-5">
+          <div className="text-[14px] font-semibold text-stone-ink">Validation</div>
+          <p className="text-[13px] text-stone-muted">
+            Connectez d&apos;abord Fleetbase ci-dessous, puis validez ce compte pour lui donner
+            accès à son tableau de bord et activer sa page publique.
+          </p>
+          <form action={approveTenant}>
+            <input type="hidden" name="id" value={t.id} />
+            <button
+              type="submit"
+              disabled={!hasKey}
+              className="h-11 rounded-[10px] bg-brand px-5 text-[14px] font-semibold text-white hover:bg-brand-hover disabled:cursor-not-allowed disabled:bg-hair disabled:text-stone-faint"
+            >
+              {hasKey ? "Valider ce compte" : "Connectez Fleetbase d'abord"}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* FLEETBASE */}
+      <form
+        action={updateTenantFleetbase}
+        className="flex flex-col gap-4 rounded-[14px] border border-hair bg-white p-5"
+      >
+        <input type="hidden" name="id" value={t.id} />
+        <div className="text-[14px] font-semibold text-stone-ink">Fleetbase (dispatch livreurs)</div>
+
+        <Field label="URL de l'API">
+          <input name="apiUrl" defaultValue={t.fleetbase_api_url ?? ""} className={input} />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Order type">
+            <input name="orderType" defaultValue={t.fleetbase_order_type ?? ""} className={input} />
+          </Field>
+          <Field label="Rayon diffusion (m)">
+            <input
+              name="adhocDistance"
+              type="number"
+              defaultValue={t.fleetbase_adhoc_distance ?? ""}
+              className={input}
+            />
+          </Field>
+        </div>
+        <Field label={hasKey ? "Clé API (enregistrée — laisser vide pour conserver)" : "Clé API"}>
+          <input
+            name="apiKey"
+            type="password"
+            autoComplete="off"
+            placeholder={hasKey ? "•••••••••• (inchangée)" : "flb_live_…"}
+            className={input}
+          />
+        </Field>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="submit"
+            className="h-11 rounded-[10px] bg-brand px-5 text-[14px] font-semibold text-white hover:bg-brand-hover"
+          >
+            Enregistrer
+          </button>
+          <TestConnectionButton tenantId={t.id} />
+        </div>
+      </form>
+
+      {/* ACTIVE TOGGLE (post-approval) */}
+      {t.status !== "pending" && (
+        <form action={toggleTenantActive} className="self-start">
+          <input type="hidden" name="id" value={t.id} />
+          <input type="hidden" name="active" value={String(t.is_active)} />
+          <button
+            type="submit"
+            className="h-10 rounded-[10px] border border-hair bg-white px-4 text-[13px] text-stone-muted2 hover:bg-hair-2"
+          >
+            {t.is_active ? "Suspendre ce compte" : "Réactiver ce compte"}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}

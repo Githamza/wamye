@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireTenant } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 
@@ -6,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 const NAV = [
   { href: "/dashboard", label: "Commandes" },
+  { href: "/dashboard/stats", label: "Statistiques" },
   { href: "/dashboard/clients", label: "Clients" },
   { href: "/dashboard/commerces", label: "Commerces" },
   { href: "/dashboard/settings", label: "Réglages" },
@@ -20,9 +22,13 @@ export default async function DashboardLayout({
   const supabase = await createClient();
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("name")
+    .select("name, status")
     .eq("id", profile.tenantId)
     .maybeSingle();
+
+  // Pending/suspended drivers can't use the dashboard until a super-admin
+  // approves them (and connects their Fleetbase).
+  if (tenant?.status !== "active") redirect("/pending");
 
   return (
     <div className="min-h-[100dvh] bg-app">

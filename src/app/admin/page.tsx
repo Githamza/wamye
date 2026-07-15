@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { toggleTenantActive } from "@/lib/actions/tenants";
 
 export const dynamic = "force-dynamic";
 
@@ -9,8 +8,15 @@ type TenantRow = {
   id: string;
   slug: string;
   name: string;
+  status: string;
   is_active: boolean;
   created_at: string;
+};
+
+const STATUS: Record<string, { label: string; cls: string }> = {
+  pending: { label: "En attente", cls: "bg-amber-100 text-amber-800" },
+  active: { label: "Actif", cls: "bg-emerald-100 text-emerald-800" },
+  suspended: { label: "Suspendu", cls: "bg-hair text-stone-muted2" },
 };
 
 export default async function AdminHomePage(props: {
@@ -22,63 +28,57 @@ export default async function AdminHomePage(props: {
   const supabase = createAdminClient();
   const { data } = await supabase
     .from("tenants")
-    .select("id, slug, name, is_active, created_at")
+    .select("id, slug, name, status, is_active, created_at")
     .order("created_at", { ascending: false });
   const tenants = (data ?? []) as TenantRow[];
+
+  const { data: secrets } = await supabase.from("tenant_secrets").select("tenant_id");
+  const connected = new Set((secrets ?? []).map((s) => s.tenant_id as string));
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-stone-ink">Tenants</h1>
+        <h1 className="text-lg font-semibold text-stone-ink">Livreurs</h1>
         <Link
           href="/admin/tenants/new"
           className="rounded-[10px] bg-brand px-4 py-2 text-[14px] font-semibold text-white hover:bg-brand-hover"
         >
-          + Nouveau tenant
+          + Nouveau
         </Link>
       </div>
 
       {created && (
         <div className="rounded-[10px] border border-brand-border bg-brand-bg px-4 py-2.5 text-[13px] text-brand-ink">
-          Tenant « {created} » créé. Partagez le lien /login + « Mot de passe oublié » avec son
-          admin pour qu&apos;il définisse son mot de passe.
+          Livreur « {created} » créé.
         </div>
       )}
 
       <ul className="flex flex-col gap-2">
-        {tenants.map((t) => (
-          <li
-            key={t.id}
-            className="flex items-center gap-3 rounded-[12px] border border-hair bg-white p-3.5"
-          >
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <div className="flex items-center gap-2">
-                <span className="text-[14px] font-medium text-stone-ink">{t.name}</span>
-                {!t.is_active && (
-                  <span className="rounded-full bg-hair px-2 py-0.5 text-[11px] text-stone-muted2">
-                    inactif
-                  </span>
-                )}
-              </div>
+        {tenants.map((t) => {
+          const s = STATUS[t.status] ?? { label: t.status, cls: "bg-hair text-stone-muted2" };
+          return (
+            <li key={t.id}>
               <Link
-                href={`/t/${t.slug}`}
-                className="text-[13px] text-brand underline underline-offset-2"
+                href={`/admin/tenants/${t.id}`}
+                className="flex items-center gap-3 rounded-[12px] border border-hair bg-white p-3.5 transition-colors hover:bg-hair-2"
               >
-                /t/{t.slug}
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[14px] font-medium text-stone-ink">{t.name}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] ${s.cls}`}>{s.label}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-[12px] text-stone-muted">
+                    <span>/t/{t.slug}</span>
+                    <span className={connected.has(t.id) ? "text-success" : "text-stone-faint"}>
+                      {connected.has(t.id) ? "Fleetbase connecté" : "Fleetbase non connecté"}
+                    </span>
+                  </div>
+                </div>
+                <span className="text-[18px] text-stone-faint">›</span>
               </Link>
-            </div>
-            <form action={toggleTenantActive}>
-              <input type="hidden" name="id" value={t.id} />
-              <input type="hidden" name="active" value={String(t.is_active)} />
-              <button
-                type="submit"
-                className="rounded-[8px] border border-hair px-3 py-1.5 text-[13px] text-stone-muted2 hover:bg-hair-2"
-              >
-                {t.is_active ? "Désactiver" : "Activer"}
-              </button>
-            </form>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

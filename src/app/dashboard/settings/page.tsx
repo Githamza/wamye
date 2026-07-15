@@ -1,7 +1,6 @@
 import { requireTenant } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { updateGeneral, updateFleetbase } from "@/lib/actions/tenant-settings";
-import { TestConnectionButton } from "@/components/test-connection-button";
+import { updateGeneral } from "@/lib/actions/tenant-settings";
 import { ZoneMapEditor } from "@/components/zone-map-editor";
 import type { Branding, FeeConfig, Hours, Zone } from "@/lib/config-types";
 
@@ -31,18 +30,9 @@ export default async function SettingsPage() {
 
   const { data: t } = await supabase
     .from("tenants")
-    .select(
-      "name, branding, zone, fee_config, hours, fleetbase_api_url, fleetbase_order_type, fleetbase_adhoc_distance",
-    )
+    .select("name, branding, zone, fee_config, hours")
     .eq("id", profile.tenantId)
     .maybeSingle();
-
-  const { data: secret } = await supabase
-    .from("tenant_secrets")
-    .select("tenant_id")
-    .eq("tenant_id", profile.tenantId)
-    .maybeSingle();
-  const hasKey = Boolean(secret);
 
   const branding = (t?.branding ?? {}) as Branding;
   const zone = (t?.zone ?? { centerLat: 0, centerLng: 0, radiusKm: 10 }) as Zone;
@@ -112,50 +102,6 @@ export default async function SettingsPage() {
         >
           Enregistrer
         </button>
-      </form>
-
-      {/* FLEETBASE */}
-      <form
-        action={updateFleetbase}
-        className="flex flex-col gap-4 rounded-[14px] border border-hair bg-white p-5"
-      >
-        <div className="text-[14px] font-semibold text-stone-ink">Fleetbase (dispatch livreurs)</div>
-
-        <Field label="URL de l'API">
-          <input name="apiUrl" defaultValue={t?.fleetbase_api_url ?? ""} className={input} />
-        </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Order type">
-            <input name="orderType" defaultValue={t?.fleetbase_order_type ?? ""} className={input} />
-          </Field>
-          <Field label="Rayon diffusion (m)">
-            <input
-              name="adhocDistance"
-              type="number"
-              defaultValue={t?.fleetbase_adhoc_distance ?? ""}
-              className={input}
-            />
-          </Field>
-        </div>
-        <Field label={hasKey ? "Clé API (enregistrée — laisser vide pour conserver)" : "Clé API"}>
-          <input
-            name="apiKey"
-            type="password"
-            autoComplete="off"
-            placeholder={hasKey ? "•••••••••• (inchangée)" : "flb_live_…"}
-            className={input}
-          />
-        </Field>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="submit"
-            className="h-11 rounded-[10px] bg-brand px-5 text-[14px] font-semibold text-white hover:bg-brand-hover"
-          >
-            Enregistrer
-          </button>
-          <TestConnectionButton />
-        </div>
       </form>
     </div>
   );

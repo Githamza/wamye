@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { testConnection, type TestResult } from "@/lib/actions/tenant-settings";
+import { testTenantConnection, type TestResult } from "@/lib/actions/tenants";
 
-export function TestConnectionButton() {
+export function TestConnectionButton({ tenantId }: { tenantId: string }) {
   const [result, setResult] = useState<TestResult>(null);
   const [pending, start] = useTransition();
 
@@ -12,7 +12,7 @@ export function TestConnectionButton() {
       <button
         type="button"
         disabled={pending}
-        onClick={() => start(async () => setResult(await testConnection()))}
+        onClick={() => start(async () => setResult(await testTenantConnection(tenantId)))}
         className="h-10 rounded-[10px] border border-hair bg-white px-4 text-[14px] font-medium text-stone-ink hover:bg-hair-2 disabled:opacity-50"
       >
         {pending ? "Test…" : "Tester la connexion"}

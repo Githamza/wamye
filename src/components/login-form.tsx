@@ -90,6 +90,13 @@ export function LoginForm({ next }: { next: string }) {
         </a>
       </form>
 
+      <div className="flex items-center justify-center gap-1.5 text-[13px] text-stone-muted">
+        <span>Pas encore de compte ?</span>
+        <a href="/signup" className="font-medium text-brand underline underline-offset-[3px]">
+          Créer un compte livreur
+        </a>
+      </div>
+
       {googleEnabled && (
         <>
           <div className="flex items-center gap-3 text-[12px] text-stone-faint">

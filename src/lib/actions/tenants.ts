@@ -5,19 +5,17 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { encryptSecret } from "@/lib/crypto";
+import { slugify } from "@/lib/slug";
+import { getTenantFleetbaseContext } from "@/lib/tenant";
+import {
+  createFleetbaseClient,
+  envFleetbaseContext,
+  FleetbaseError,
+} from "@/lib/fleetbase";
 
 function num(v: FormDataEntryValue | null, fallback: number): number {
   const n = Number(String(v ?? "").trim());
   return Number.isFinite(n) ? n : fallback;
-}
-
-function slugify(raw: string): string {
-  return raw
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }
 
 /**
@@ -86,6 +84,7 @@ export async function createTenant(formData: FormData) {
       fleetbase_api_url: apiUrl,
       fleetbase_order_type: orderType,
       fleetbase_adhoc_distance: adhocDistanceRaw ? Number(adhocDistanceRaw) : null,
+      status: "active",
       is_active: true,
     })
     .select("id")
@@ -118,7 +117,7 @@ export async function createTenant(formData: FormData) {
   redirect(`/admin?created=${slug}`);
 }
 
-/** Enable/disable a tenant (hides its public page + dashboard). */
+/** Enable/disable a tenant's public page (only meaningful once approved). */
 export async function toggleTenantActive(formData: FormData) {
   await requireRole("super_admin");
   const id = String(formData.get("id") ?? "");
@@ -126,6 +125,92 @@ export async function toggleTenantActive(formData: FormData) {
   if (!id) return;
 
   const supabase = createAdminClient();
-  await supabase.from("tenants").update({ is_active: !active }).eq("id", id);
+  const next = !active;
+  await supabase
+    .from("tenants")
+    .update({ is_active: next, status: next ? "active" : "suspended" })
+    .eq("id", id);
   revalidatePath("/admin");
+  revalidatePath(`/admin/tenants/${id}`);
+}
+
+/** Approve a pending self-registered tenant (super-admin only). */
+export async function approveTenant(formData: FormData) {
+  await requireRole("super_admin");
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const supabase = createAdminClient();
+  await supabase
+    .from("tenants")
+    .update({ status: "active", is_active: true })
+    .eq("id", id);
+  revalidatePath("/admin");
+  revalidatePath(`/admin/tenants/${id}`);
+}
+
+/**
+ * Set a tenant's Fleetbase connection (super-admin only). The API key is
+ * write-only + encrypted; leaving it blank keeps the stored one.
+ */
+export async function updateTenantFleetbase(formData: FormData) {
+  await requireRole("super_admin");
+  const id = String(formData.get("id") ?? "");
+  if (!id) redirect("/admin");
+
+  const supabase = createAdminClient();
+  const apiUrl = String(formData.get("apiUrl") ?? "").trim() || null;
+  const orderType = String(formData.get("orderType") ?? "").trim() || null;
+  const adhocDistanceRaw = String(formData.get("adhocDistance") ?? "").trim();
+  const newKey = String(formData.get("apiKey") ?? "").trim();
+
+  await supabase
+    .from("tenants")
+    .update({
+      fleetbase_api_url: apiUrl,
+      fleetbase_order_type: orderType,
+      fleetbase_adhoc_distance: adhocDistanceRaw ? Number(adhocDistanceRaw) : null,
+    })
+    .eq("id", id);
+
+  if (newKey) {
+    await supabase.from("tenant_secrets").upsert({
+      tenant_id: id,
+      fleetbase_api_key_encrypted: encryptSecret(newKey),
+      updated_at: new Date().toISOString(),
+    });
+  }
+
+  revalidatePath(`/admin/tenants/${id}`);
+  redirect(`/admin/tenants/${id}?saved=1`);
+}
+
+export type TestResult = { ok: boolean; message: string } | null;
+
+/** "Test connection": validate a tenant's stored Fleetbase credentials. */
+export async function testTenantConnection(tenantId: string): Promise<TestResult> {
+  await requireRole("super_admin");
+  const supabase = createAdminClient();
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("slug")
+    .eq("id", tenantId)
+    .maybeSingle();
+
+  const ctx = tenant?.slug
+    ? (await getTenantFleetbaseContext(tenant.slug as string)) ?? envFleetbaseContext()
+    : envFleetbaseContext();
+
+  if (!ctx) return { ok: false, message: "Aucune clé Fleetbase configurée." };
+
+  try {
+    await createFleetbaseClient(ctx).ping();
+    return { ok: true, message: "Connexion réussie ✓" };
+  } catch (err) {
+    const msg =
+      err instanceof FleetbaseError
+        ? `Échec (${err.status}) : ${err.message}`
+        : "Échec de la connexion.";
+    return { ok: false, message: msg };
+  }
 }
