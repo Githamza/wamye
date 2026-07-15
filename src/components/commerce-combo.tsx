@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Loader2, Store, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import type { Commerce } from "@/lib/config-types";
+import type { Commerce, Zone } from "@/lib/config-types";
+import type { LatLng } from "@/lib/order-types";
 import { searchCommerces } from "@/lib/default-config";
 import { type PlaceSuggestion, isMapsEnabled, resolvePlace, searchPlaces } from "@/lib/maps";
 
@@ -12,6 +13,12 @@ type Props = {
   onSelect: (c: Commerce | null) => void;
   /** The tenant's commerce list, searched when Google Places is unavailable. */
   commerces: Commerce[];
+  /** Tenant delivery zone — bounds the Places search to deliverable shops. */
+  zone: Zone;
+  /** Customer position, when known — nearest shops surface first. */
+  position?: LatLng | null;
+  /** ISO region code (e.g. "tn") from the tenant's phoneCountry. */
+  regionCode?: string;
   /** free-text mode ("Introuvable ? Décrivez-le") */
   describe: boolean;
   describeValue: string;
@@ -23,16 +30,26 @@ type Row = {
   id: string;
   name: string;
   addr: string;
+  /** Distance from the customer, when known (Places rows with a position). */
+  distanceMeters?: number;
   /** Present only for Places rows — resolving it yields the pickup coordinates. */
   suggestion?: PlaceSuggestion;
 };
 
 const DEBOUNCE_MS = 250;
 
+/** "800 m" / "1,2 km" — short distance label, comma decimal (fr). */
+function formatDistance(m: number): string {
+  return m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1).replace(".", ",")} km`;
+}
+
 export function CommerceCombo({
   selected,
   onSelect,
   commerces,
+  zone,
+  position,
+  regionCode,
   describe,
   describeValue,
   onDescribeChange,
@@ -63,13 +80,14 @@ export function CommerceCombo({
     const timer = window.setTimeout(async () => {
       setSearching(true);
       try {
-        const found = await searchPlaces(q);
+        const found = await searchPlaces(q, { zone, origin: position, regionCode });
         if (seq.current !== id) return; // a newer keystroke won
         setPlaceRows(
           found.map((s) => ({
             id: s.placeId,
             name: s.name,
             addr: s.secondary,
+            distanceMeters: s.distanceMeters,
             suggestion: s,
           })),
         );
@@ -82,7 +100,7 @@ export function CommerceCombo({
     }, DEBOUNCE_MS);
 
     return () => window.clearTimeout(timer);
-  }, [q, places, commerces]);
+  }, [q, places, commerces, zone, position, regionCode]);
 
   async function pick(row: Row) {
     setOpen(false);
@@ -195,7 +213,14 @@ export function CommerceCombo({
                   i === 0 ? "bg-brand-bg" : "border-t border-hair-2"
                 }`}
               >
-                <span className="text-[15px] font-medium text-stone-ink">{c.name}</span>
+                <div className="flex w-full items-baseline justify-between gap-2">
+                  <span className="text-[15px] font-medium text-stone-ink">{c.name}</span>
+                  {c.distanceMeters != null && (
+                    <span className="flex-none text-[12px] font-medium text-brand tabular-nums">
+                      {formatDistance(c.distanceMeters)}
+                    </span>
+                  )}
+                </div>
                 <span className="truncate text-[13px] text-stone-muted">{c.addr}</span>
               </button>
             ))

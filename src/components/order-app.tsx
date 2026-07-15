@@ -379,6 +379,9 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
                   selected={commerce}
                   onSelect={setCommerce}
                   commerces={config.commerces}
+                  zone={config.zone}
+                  position={position}
+                  regionCode={config.phoneCountry.toLowerCase()}
                   describe={describe}
                   describeValue={describeText}
                   onDescribeChange={setDescribeText}

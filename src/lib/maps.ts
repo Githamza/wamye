@@ -17,6 +17,8 @@
 // ============================================================
 
 import { importLibrary, setOptions } from "@googlemaps/js-api-loader";
+import type { LatLng } from "@/lib/order-types";
+import type { Zone } from "@/lib/config-types";
 
 const BROWSER_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY ?? "";
 // Advanced markers refuse to render without a Map ID. Google's public test ID
@@ -30,9 +32,24 @@ export function isMapsEnabled(): boolean {
 
 export { MAP_ID };
 
-// Djerba: island centre, and a hard bounding box for Places results.
+// Default map centre (fallback for the mini-map before a tenant zone is known).
 export const DJERBA_CENTER = { lat: 33.808, lng: 10.995 };
-const DJERBA_BOUNDS = { west: 10.72, south: 33.66, east: 11.1, north: 33.9 };
+
+// Keep the search box sane even if a tenant sets a huge radius.
+const MAX_RESTRICT_KM = 50;
+
+/** A lat/lng bounding box circumscribing the tenant's circular zone. */
+function boundsFromZone(zone: Zone) {
+  const km = Math.min(MAX_RESTRICT_KM, Math.max(1, zone.radiusKm));
+  const dLat = km / 111.32;
+  const dLng = km / (111.32 * Math.cos((zone.centerLat * Math.PI) / 180));
+  return {
+    west: zone.centerLng - dLng,
+    east: zone.centerLng + dLng,
+    south: zone.centerLat - dLat,
+    north: zone.centerLat + dLat,
+  };
+}
 
 // The bootstrap loader only ever loads once and warns if re-invoked, so
 // configure it at module scope rather than inside an effect (React StrictMode
@@ -83,7 +100,19 @@ export type PlaceSuggestion = {
   name: string;
   /** Address line under it. */
   secondary: string;
+  /** Distance from the search origin (customer), when known — for nearest-first. */
+  distanceMeters?: number;
   prediction: google.maps.places.PlacePrediction;
+};
+
+/** Options that make commerce search location-aware and tenant-scoped. */
+export type NearbySearch = {
+  /** Tenant delivery zone — hard-restricts results to the deliverable area. */
+  zone: Zone;
+  /** Customer position, when known — results are ranked nearest-first from here. */
+  origin?: LatLng | null;
+  /** ISO region code (e.g. "tn"), derived from the tenant's phoneCountry. */
+  regionCode?: string;
 };
 
 /** Resolved commerce: what the order actually needs. */
@@ -102,23 +131,34 @@ async function placesLib() {
   return importLibrary("places");
 }
 
-/** Live commerce search, hard-restricted to the Djerba bounding box. */
-export async function searchPlaces(input: string): Promise<PlaceSuggestion[]> {
+/**
+ * Live commerce search, hard-restricted to the tenant's delivery zone and
+ * ranked nearest-first from the customer's position (falling back to the zone
+ * centre until they share it). A shop outside the zone is undeliverable, so it
+ * is filtered out, not merely down-ranked.
+ */
+export async function searchPlaces(
+  input: string,
+  opts: NearbySearch,
+): Promise<PlaceSuggestion[]> {
   const q = input.trim();
   if (q === "" || !isMapsEnabled()) return [];
 
   const { AutocompleteSuggestion, AutocompleteSessionToken } = await placesLib();
   if (!sessionToken) sessionToken = new AutocompleteSessionToken();
 
+  const zoneCenter = { lat: opts.zone.centerLat, lng: opts.zone.centerLng };
+  const origin = opts.origin ?? zoneCenter;
+
   const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
     input: q,
     sessionToken,
-    // Restrict (not just bias): a commerce outside Djerba is undeliverable.
-    locationRestriction: DJERBA_BOUNDS,
-    origin: DJERBA_CENTER,
-    includedRegionCodes: ["tn"],
+    // Restrict (not just bias) to the deliverable zone.
+    locationRestriction: boundsFromZone(opts.zone),
+    // Distance is measured from here → nearest shops surface first.
+    origin,
+    ...(opts.regionCode ? { includedRegionCodes: [opts.regionCode] } : {}),
     language: "fr",
-    region: "tn",
   });
 
   return suggestions
@@ -128,8 +168,10 @@ export async function searchPlaces(input: string): Promise<PlaceSuggestion[]> {
       placeId: p.placeId,
       name: p.mainText?.text ?? p.text.text,
       secondary: p.secondaryText?.text ?? "",
+      distanceMeters: p.distanceMeters ?? undefined,
       prediction: p,
     }))
+    .sort((a, b) => (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity))
     .slice(0, 5);
 }
 
