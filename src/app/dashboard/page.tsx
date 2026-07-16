@@ -1,6 +1,7 @@
 import { requireTenant } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { formatDT } from "@/lib/fees";
+import { ShopLink } from "@/components/shop-link";
 
 export const dynamic = "force-dynamic";
 
@@ -24,18 +25,23 @@ const STAGE_LABEL: Record<string, string> = {
 };
 
 export default async function OrdersPage() {
-  await requireTenant();
+  const profile = await requireTenant();
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("orders")
-    .select("id, fleetbase_id, stage, status, commerce_name, order_text, phone, fee, created_at")
-    .order("created_at", { ascending: false })
-    .limit(50);
+  const [{ data }, { data: tenant }] = await Promise.all([
+    supabase
+      .from("orders")
+      .select("id, fleetbase_id, stage, status, commerce_name, order_text, phone, fee, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50),
+    supabase.from("tenants").select("slug").eq("id", profile.tenantId).maybeSingle(),
+  ]);
 
   const orders = (data ?? []) as OrderRow[];
 
   return (
     <div className="flex flex-col gap-4">
+      {tenant?.slug && <ShopLink slug={tenant.slug} />}
+
       <h1 className="text-lg font-semibold text-stone-ink">Commandes</h1>
 
       {orders.length === 0 ? (
