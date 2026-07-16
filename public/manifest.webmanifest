@@ -1,7 +1,7 @@
 {
-  "name": "Livraison Djerba",
-  "short_name": "Livraison Djerba",
-  "description": "Commandez repas, courses et livraisons à Djerba & Midoun.",
+  "name": "Wamye",
+  "short_name": "Wamye",
+  "description": "Trouvez un livreur près de chez vous. Repas, courses, pharmacie — payez à la livraison.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FAFAF9",

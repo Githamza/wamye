@@ -9,15 +9,17 @@ const inter = Inter({
   weight: ["400", "500", "600", "700", "800"],
 });
 
+// Platform-level defaults. Each tenant's ordering page overrides the title
+// with its own branding via generateMetadata (see app/t/[slug]/page.tsx).
 export const metadata: Metadata = {
-  title: "Livraison Djerba — Commander",
+  title: "Wamye — Livraison en Tunisie",
   description:
-    "Commandez repas, courses et livraisons à Djerba & Midoun. Un livreur confirme le prix avant achat, vous payez à la livraison.",
+    "Trouvez un livreur près de chez vous. Repas, courses, pharmacie : un livreur confirme le prix avant achat, vous payez à la livraison.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Livraison Djerba",
+    title: "Wamye",
   },
 };
 

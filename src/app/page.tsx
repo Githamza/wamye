@@ -8,7 +8,7 @@ import { listPublicTenants } from "@/lib/tenant";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Wamya — Livraison en Tunisie",
+  title: "Wamye — Livraison en Tunisie",
   description:
     "Trouvez un livreur près de chez vous. Repas, courses, pharmacie : un livreur confirme le prix avant achat, vous payez à la livraison.",
 };
@@ -42,7 +42,7 @@ export default async function LandingPage() {
             🛵
           </span>
           <span className="text-[17px] font-bold tracking-tight text-stone-ink">
-            Wamya
+            Wamye
           </span>
         </div>
         <Link
@@ -60,7 +60,7 @@ export default async function LandingPage() {
           livré près de chez vous.
         </h1>
         <p className="max-w-xl text-[15px] leading-relaxed text-stone-muted">
-          Wamya réunit les services de livraison de Tunisie. Repas, courses,
+          Wamye réunit les services de livraison de Tunisie. Repas, courses,
           pharmacie : un livreur de votre région s&apos;en charge, confirme le
           prix avant d&apos;acheter, et vous payez à la livraison.
         </p>
@@ -162,7 +162,7 @@ export default async function LandingPage() {
           </h2>
           <p className="text-[13px] leading-relaxed text-brand-ink/75">
             Inscrivez votre service, couvrez votre région et recevez vos
-            commandes sur Wamya.
+            commandes sur Wamye.
           </p>
         </div>
         <Link
@@ -174,7 +174,7 @@ export default async function LandingPage() {
       </section>
 
       <footer className="border-t border-hair pt-5 text-[12.5px] text-stone-faint">
-        Wamya — livraison en Tunisie.
+        Wamye — livraison en Tunisie.
       </footer>
     </div>
   );
