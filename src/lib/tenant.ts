@@ -81,6 +81,48 @@ async function fetchCommerces(tenantId: string): Promise<Commerce[]> {
   }));
 }
 
+/** One entry in the landing page's directory of tenants. */
+export type TenantSummary = {
+  slug: string;
+  name: string;
+  branding: TenantPublicConfig["branding"];
+  hours: TenantPublicConfig["hours"];
+};
+
+/**
+ * Every tenant a customer can order from, for the public directory on the
+ * landing page. Service-role read because `tenants_select` is closed to
+ * anonymous visitors; only non-secret display fields are selected.
+ *
+ * `status` and `is_active` are both required: a self-registered tenant is
+ * pending until a super-admin approves it, and must not be listed meanwhile.
+ */
+export async function listPublicTenants(): Promise<TenantSummary[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("tenants")
+    .select("slug, name, branding, hours")
+    .eq("is_active", true)
+    .eq("status", "active")
+    .order("name");
+
+  if (error) {
+    console.error("[tenant] directory fetch failed:", error.message);
+    return [];
+  }
+
+  return (data ?? []).map((row) => ({
+    slug: row.slug as string,
+    name: row.name as string,
+    branding:
+      (row.branding as TenantPublicConfig["branding"] | null) ?? {
+        name: row.name as string,
+      },
+    hours: row.hours as TenantPublicConfig["hours"],
+  }));
+}
+
 /** The public ordering-page config for a tenant, or null if not found. */
 export async function getTenantPublicConfig(
   slug: string,
