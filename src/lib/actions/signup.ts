@@ -77,12 +77,17 @@ export async function signupDriver(formData: FormData) {
     redirect("/signup?error=email");
   }
 
-  // 3. Link the login to its tenant as a tenant_admin (the "driver").
+  // 3. Link the login to its tenant as a tenant_admin (the "driver"). They are
+  //    the team's owner: parent_profile_id stays null and status defaults to
+  //    'active' — a new driver waits on tenants.status, not their own.
+  //    The phone is stored on the profile too, not just in branding: it is what
+  //    registers them as a Fleetbase driver, which needs name + email + phone.
   await supabase.from("profiles").upsert({
     id: created.user.id,
     tenant_id: tenant.id,
     role: "tenant_admin",
     name,
+    phone: supportPhone || null,
   });
 
   // 4. Sign the new driver in (sets session cookies) so they land on /pending.

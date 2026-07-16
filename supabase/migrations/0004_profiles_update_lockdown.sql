@@ -1,0 +1,28 @@
+-- 0004_profiles_update_lockdown.sql
+-- SECURITY: close a privilege escalation on public.profiles.
+--
+-- profiles_update_self was:
+--   for update using (id = auth.uid()) with check (id = auth.uid())
+-- with no restriction on WHICH COLUMNS may change. RLS cannot restrict columns
+-- — a row that still belongs to you passes the check no matter what you set —
+-- so any authenticated user could run this from the browser with the anon key:
+--
+--   update profiles set role = 'super_admin' where id = auth.uid();
+--
+-- Verified exploitable against this database before dropping.
+--
+-- 0003 made it worse: with status + parent_profile_id on this table, a
+-- sub-driver could self-approve (status='active') and promote themselves to
+-- owner (parent_profile_id=null), defeating both the approval gate and the
+-- owner/member split.
+--
+-- Nothing in the app relies on it: every profile write goes through the
+-- service-role client (signup.ts, tenants.ts, team.ts), which bypasses RLS.
+drop policy if exists profiles_update_self on public.profiles;
+
+-- If self-service profile editing is ever needed, the column allow-list must
+-- come from GRANTs — RLS alone cannot express it:
+--   revoke update on public.profiles from authenticated;
+--   grant  update (name, phone) on public.profiles to authenticated;
+--   create policy profiles_update_self on public.profiles for update
+--     using (id = auth.uid()) with check (id = auth.uid());

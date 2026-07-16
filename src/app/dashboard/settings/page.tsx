@@ -1,4 +1,4 @@
-import { requireTenant } from "@/lib/auth/dal";
+import { requireOwner } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { updateGeneral } from "@/lib/actions/tenant-settings";
 import { ZoneMapEditor } from "@/components/zone-map-editor";
@@ -25,7 +25,7 @@ function Field({
 }
 
 export default async function SettingsPage() {
-  const profile = await requireTenant();
+  const profile = await requireOwner();
   const supabase = createAdminClient();
 
   const { data: t } = await supabase

@@ -7,7 +7,9 @@ import {
   toggleTenantActive,
   updateTenantFleetbase,
 } from "@/lib/actions/tenants";
+import { approveSubDriver, setMemberStatus } from "@/lib/actions/team";
 import { TestConnectionButton } from "@/components/test-connection-button";
+import { SyncDriverButton } from "@/components/sync-driver-button";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,15 @@ const STATUS_LABEL: Record<string, string> = {
   pending: "En attente",
   active: "Actif",
   suspended: "Suspendu",
+};
+
+type TeamRow = {
+  id: string;
+  name: string | null;
+  phone: string | null;
+  status: string;
+  parent_profile_id: string | null;
+  fleetbase_driver_id: string | null;
 };
 
 export default async function TenantDetailPage(props: {
@@ -53,6 +64,16 @@ export default async function TenantDetailPage(props: {
     .eq("tenant_id", id)
     .maybeSingle();
   const hasKey = Boolean(secret);
+
+  // The whole team: the owner (parent_profile_id null) plus their sub-drivers.
+  const { data: teamRows } = await supabase
+    .from("profiles")
+    .select("id, name, phone, status, parent_profile_id, fleetbase_driver_id, role")
+    .eq("tenant_id", id)
+    .neq("role", "super_admin")
+    .order("parent_profile_id", { nullsFirst: true })
+    .order("created_at");
+  const team = (teamRows ?? []) as TeamRow[];
 
   return (
     <div className="flex flex-col gap-5">
@@ -102,6 +123,83 @@ export default async function TenantDetailPage(props: {
           </form>
         </div>
       )}
+
+      {/* TEAM — the owner plus any sub-drivers they added. Sub-drivers need
+          approval here before they can work, exactly like a self-signup. */}
+      <div className="flex flex-col gap-3 rounded-[14px] border border-hair bg-white p-5">
+        <div className="text-[14px] font-semibold text-stone-ink">Équipe</div>
+        <p className="text-[13px] text-stone-muted">
+          Un livreur synchronisé ne reçoit des courses que s&apos;il est en ligne dans
+          l&apos;application Fleetbase Navigator (elle partage sa position).
+        </p>
+
+        {team.length === 0 && (
+          <div className="text-[13px] text-stone-muted">Aucun compte.</div>
+        )}
+
+        {team.map((m) => {
+          const isOwner = m.parent_profile_id === null;
+          return (
+            <div
+              key={m.id}
+              className="flex flex-col gap-2 rounded-[10px] border border-hair p-3"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[14px] font-medium text-stone-ink">
+                    {m.name ?? "—"}{" "}
+                    <span className="text-[12px] text-stone-muted">
+                      {isOwner ? "· responsable" : "· sous-livreur"}
+                    </span>
+                  </div>
+                  <div className="text-[12px] text-stone-muted">
+                    {m.phone || "aucun numéro"}
+                  </div>
+                </div>
+                <span className="rounded-full bg-hair px-2 py-0.5 text-[11px] text-stone-muted2">
+                  {STATUS_LABEL[m.status] ?? m.status}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <SyncDriverButton
+                  profileId={m.id}
+                  synced={Boolean(m.fleetbase_driver_id)}
+                />
+                {m.status === "pending" && (
+                  <form action={approveSubDriver}>
+                    <input type="hidden" name="id" value={m.id} />
+                    <input type="hidden" name="tenantId" value={t.id} />
+                    <button
+                      type="submit"
+                      className="h-9 rounded-[8px] bg-brand px-3 text-[13px] font-semibold text-white hover:bg-brand-hover"
+                    >
+                      Valider
+                    </button>
+                  </form>
+                )}
+                {!isOwner && m.status !== "pending" && (
+                  <form action={setMemberStatus}>
+                    <input type="hidden" name="id" value={m.id} />
+                    <input type="hidden" name="tenantId" value={t.id} />
+                    <input
+                      type="hidden"
+                      name="status"
+                      value={m.status === "active" ? "suspended" : "active"}
+                    />
+                    <button
+                      type="submit"
+                      className="h-9 rounded-[8px] border border-hair px-3 text-[13px] font-medium text-stone-muted2 hover:bg-hair-2"
+                    >
+                      {m.status === "active" ? "Suspendre" : "Réactiver"}
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
       {/* FLEETBASE */}
       <form

@@ -5,12 +5,15 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
+// ownerOnly hides a tab from sub-drivers. Cosmetic only — requireOwner() inside
+// each of those pages is the actual gate.
 const NAV = [
   { href: "/dashboard", label: "Commandes" },
-  { href: "/dashboard/stats", label: "Statistiques" },
+  { href: "/dashboard/stats", label: "Statistiques", ownerOnly: true },
   { href: "/dashboard/clients", label: "Clients" },
   { href: "/dashboard/commerces", label: "Commerces" },
-  { href: "/dashboard/settings", label: "Réglages" },
+  { href: "/dashboard/team", label: "Équipe", ownerOnly: true },
+  { href: "/dashboard/settings", label: "Réglages", ownerOnly: true },
 ];
 
 export default async function DashboardLayout({
@@ -19,6 +22,12 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const profile = await requireTenant();
+
+  // Two independent gates. The member gate is checked first because a pending
+  // sub-driver's current_tenant_id() is null, so the tenant read below would
+  // return nothing anyway and the reason for the bounce would be misleading.
+  if (profile.status !== "active") redirect("/pending");
+
   const supabase = await createClient();
   const { data: tenant } = await supabase
     .from("tenants")
@@ -29,6 +38,8 @@ export default async function DashboardLayout({
   // Pending/suspended drivers can't use the dashboard until a super-admin
   // approves them (and connects their Fleetbase).
   if (tenant?.status !== "active") redirect("/pending");
+
+  const nav = NAV.filter((n) => !n.ownerOnly || profile.isOwner);
 
   return (
     <div className="min-h-[100dvh] bg-app">
@@ -55,7 +66,7 @@ export default async function DashboardLayout({
       </header>
 
       <nav className="flex gap-1 overflow-x-auto border-b border-hair bg-white px-3">
-        {NAV.map((n) => (
+        {nav.map((n) => (
           <Link
             key={n.href}
             href={n.href}

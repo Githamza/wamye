@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireTenant } from "@/lib/auth/dal";
+import { requireOwner } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 function num(v: FormDataEntryValue | null): number | null {
@@ -13,9 +13,13 @@ function num(v: FormDataEntryValue | null): number | null {
  * Update branding / zone / fee / hours for the caller's tenant. Fleetbase is
  * intentionally NOT editable here — a super-admin owns it (see
  * src/lib/actions/tenants.ts: updateTenantFleetbase).
+ *
+ * requireOwner, not requireTenant: this writes with the service-role client, so
+ * RLS is not a second line of defence — this guard is the only one. A sub-driver
+ * reaching it could rewrite the business's zone and fees.
  */
 export async function updateGeneral(formData: FormData) {
-  const profile = await requireTenant();
+  const profile = await requireOwner();
   const supabase = createAdminClient();
 
   const branding = {

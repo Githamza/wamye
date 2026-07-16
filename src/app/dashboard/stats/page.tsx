@@ -1,4 +1,4 @@
-import { requireTenant } from "@/lib/auth/dal";
+import { requireOwner } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { formatDT } from "@/lib/fees";
 
@@ -31,7 +31,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 export default async function StatsPage() {
-  await requireTenant();
+  await requireOwner();
   const supabase = await createClient();
 
   const since = new Date(Date.now() - WINDOW_DAYS * 86400_000).toISOString();

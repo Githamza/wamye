@@ -56,6 +56,17 @@ export function envFleetbaseContext(): FleetbaseContext | null {
   };
 }
 
+/** A team member to register as a driver. All three fields are required by
+ *  FleetOps (verified: POST /v1/drivers rejects a missing one with a 422). */
+export type CreateDriverInput = {
+  name: string;
+  email: string;
+  /** International format, e.g. +216… */
+  phone: string;
+};
+
+export type CreatedDriver = { id: string };
+
 export class FleetbaseError extends Error {
   constructor(
     message: string,
@@ -72,14 +83,27 @@ type FleetbaseOrder = {
   tracking_number?: string | { tracking_number?: string } | null;
   status?: string | null;
   driver_assigned?: unknown;
-  errors?: string[];
 };
 
-async function request(
+/** A Fleetbase driver as returned by /v1/drivers. */
+type FleetbaseDriver = {
+  id?: string;
+  public_id?: string;
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  /** The company the API key is bound to — drivers are scoped by key. */
+  company?: string | null;
+};
+
+/** FleetOps reports failures as {error, errors[]} on any endpoint. */
+type FleetbaseErrorBody = { error?: string; errors?: string[] };
+
+async function request<T>(
   ctx: FleetbaseContext,
   path: string,
   init?: RequestInit,
-): Promise<FleetbaseOrder> {
+): Promise<T> {
   if (!ctx.apiKey.trim()) {
     throw new FleetbaseError("Fleetbase API key is not configured", 503);
   }
@@ -104,10 +128,13 @@ async function request(
     );
   }
 
-  const body = (await res.json().catch(() => ({}))) as FleetbaseOrder;
+  const body = (await res.json().catch(() => ({}))) as T & FleetbaseErrorBody;
 
   if (!res.ok) {
-    const msg = body.errors?.join(", ") || `Fleetbase request failed (${res.status})`;
+    const msg =
+      body.errors?.join(", ") ||
+      body.error ||
+      `Fleetbase request failed (${res.status})`;
     throw new FleetbaseError(msg, res.status);
   }
 
@@ -217,7 +244,7 @@ export function createFleetbaseClient(ctx: FleetbaseContext) {
   return {
     /** Create a delivery order in this tenant's Fleetbase company. */
     async createOrder(input: CreateOrderInput): Promise<CreatedOrder> {
-      const order = await request(ctx, "/v1/orders", {
+      const order = await request<FleetbaseOrder>(ctx, "/v1/orders", {
         method: "POST",
         body: JSON.stringify(buildPayload(input, ctx)),
       });
@@ -237,7 +264,10 @@ export function createFleetbaseClient(ctx: FleetbaseContext) {
 
     /** Read a single order's current status for the tracking timeline. */
     async getOrder(id: string): Promise<OrderStatus> {
-      const order = await request(ctx, `/v1/orders/${encodeURIComponent(id)}`);
+      const order = await request<FleetbaseOrder>(
+        ctx,
+        `/v1/orders/${encodeURIComponent(id)}`,
+      );
       return {
         id: order.public_id ?? order.id ?? id,
         status: order.status ?? "created",
@@ -247,9 +277,35 @@ export function createFleetbaseClient(ctx: FleetbaseContext) {
       };
     },
 
+    /**
+     * Register a team member as a driver in this tenant's Fleetbase company,
+     * putting them in its dispatch/adhoc pool. The API key alone scopes the
+     * driver to the right company — no company id needed.
+     *
+     * Verified against the live FleetOps API: name/email/phone are the only
+     * required fields; Fleetbase creates the backing user record itself, and
+     * the driver app signs in by phone (so we never set a password here).
+     */
+    async createDriver(input: CreateDriverInput): Promise<CreatedDriver> {
+      const driver = await request<FleetbaseDriver>(ctx, "/v1/drivers", {
+        method: "POST",
+        body: JSON.stringify({
+          name: input.name,
+          email: input.email,
+          phone: input.phone,
+        }),
+      });
+
+      const id = driver.public_id ?? driver.id;
+      if (!id) {
+        throw new FleetbaseError("Fleetbase did not return a driver id", 502);
+      }
+      return { id };
+    },
+
     /** Cheap authenticated GET to validate the credentials ("Test connection"). */
     async ping(): Promise<void> {
-      await request(ctx, "/v1/orders?limit=1");
+      await request<FleetbaseOrder>(ctx, "/v1/orders?limit=1");
     },
   };
 }

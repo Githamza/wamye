@@ -14,11 +14,19 @@ import { createClient } from "@/lib/supabase/server";
 
 export type UserRole = "super_admin" | "tenant_admin";
 
+/** Per-member approval state. A tenant's owner is 'active' from signup; a
+ *  sub-driver starts 'pending' until a super-admin approves them. */
+export type ProfileStatus = "pending" | "active" | "suspended";
+
 export type Profile = {
   id: string;
   tenantId: string | null;
   role: UserRole;
   name: string | null;
+  status: ProfileStatus;
+  /** null → this is the tenant's owner; set → a sub-driver on their team. */
+  parentProfileId: string | null;
+  isOwner: boolean;
 };
 
 /** The authenticated Supabase user, or null. Verified against the auth server. */
@@ -30,7 +38,12 @@ export const getSessionUser = cache(async (): Promise<User | null> => {
   return user;
 });
 
-/** The current user's profile (role + tenant), or null. RLS-scoped read. */
+/**
+ * The current user's profile (role + tenant + team position), or null.
+ * RLS-scoped read via profiles_select_self, which is keyed on auth.uid() alone
+ * — so this keeps working for a pending sub-driver, whose current_tenant_id()
+ * is null and who therefore cannot read any tenant-scoped table.
+ */
 export const getProfile = cache(async (): Promise<Profile | null> => {
   const user = await getSessionUser();
   if (!user) return null;
@@ -38,16 +51,20 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
-    .select("id, tenant_id, role, name")
+    .select("id, tenant_id, role, name, status, parent_profile_id")
     .eq("id", user.id)
     .maybeSingle();
 
   if (!data) return null;
+  const parentProfileId = (data.parent_profile_id as string | null) ?? null;
   return {
     id: data.id as string,
     tenantId: (data.tenant_id as string | null) ?? null,
     role: data.role as UserRole,
     name: (data.name as string | null) ?? null,
+    status: data.status as ProfileStatus,
+    parentProfileId,
+    isOwner: parentProfileId === null,
   };
 });
 
@@ -74,4 +91,19 @@ export async function requireTenant(): Promise<Profile & { tenantId: string }> {
   const profile = await getProfile();
   if (!profile || !profile.tenantId) redirect("/login");
   return { ...profile, tenantId: profile.tenantId };
+}
+
+/**
+ * Require the tenant's OWNER — not a sub-driver on their team. Guards the
+ * surfaces the boss alone gets: team management, réglages, revenue stats.
+ *
+ * Use this, never requireRole("tenant_admin"): sub-drivers deliberately carry
+ * role='tenant_admin' too (team position is parent_profile_id, not the role),
+ * so a role check would let them through. Redirects to /dashboard rather than
+ * /login — a sub-driver here is signed in, just not allowed.
+ */
+export async function requireOwner(): Promise<Profile & { tenantId: string }> {
+  const profile = await requireTenant();
+  if (!profile.isOwner) redirect("/dashboard");
+  return profile;
 }
