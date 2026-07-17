@@ -57,14 +57,12 @@ const kilometreFormat = perLocale(
     }),
 );
 
-const metreFormat = perLocale(
-  (locale) =>
-    new Intl.NumberFormat(locale, {
-      style: "unit",
-      unit: "meter",
-      unitDisplay: "short",
-      maximumFractionDigits: 0,
-    }),
+const wholeFormat = perLocale(
+  (locale) => new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }),
+);
+
+const oneDecimalFormat = perLocale(
+  (locale) => new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }),
 );
 
 /** A fee with its currency symbol: "7,5 DT" (fr) / "‏7,5 د.ت.‏" (ar). */
@@ -78,9 +76,18 @@ export function formatKm(km: number, locale: string = DEFAULT_LOCALE): string {
 }
 
 /**
- * A proximity label for a nearby place, switching unit at the kilometre:
- * "800 m" below, "1,2 km" above.
+ * A proximity to a nearby place, switching unit at the kilometre.
+ *
+ * Returns the number and the unit it landed in, rather than a finished string
+ * like formatKm does, because the caller has to word the unit from messages.
+ * Intl cannot: its Arabic for "meter" applies full MSA morphology, and the
+ * digit does not survive it — 1 formats as "متر", 2 as "متران", 11 as
+ * "11 مترًا". Kilometres need no such help, since "كم" is invariant.
  */
-export function formatMeters(m: number, locale: string = DEFAULT_LOCALE): string {
-  return m < 1000 ? metreFormat(locale).format(Math.round(m)) : formatKm(m / 1000, locale);
+export type Proximity = { value: string; unit: "m" | "km" };
+
+export function proximity(m: number, locale: string = DEFAULT_LOCALE): Proximity {
+  return m < 1000
+    ? { value: wholeFormat(locale).format(Math.round(m)), unit: "m" }
+    : { value: oneDecimalFormat(locale).format(m / 1000), unit: "km" };
 }

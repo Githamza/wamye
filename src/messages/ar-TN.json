@@ -76,7 +76,9 @@
     "searchPlaceholder": "مطعم، عطّار، صيدلية…",
     "searchAria": "المحلّ",
     "searching": "قاعد يلوّج…",
-    "noResults": "ما فماش نتيجة — جرّب «وصّفهولنا»"
+    "noResults": "ما فماش نتيجة — جرّب «وصّفهولنا»",
+    "meters": "{value} متر",
+    "kilometers": "{value} كم"
   },
   "Delivery": {
     "useLocation": "استعمل موقعي",

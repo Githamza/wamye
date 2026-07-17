@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import type { Commerce, Zone } from "@/lib/config-types";
 import type { LatLng } from "@/lib/order-types";
 import { searchCommerces } from "@/lib/default-config";
-import { formatMeters } from "@/lib/format";
+import { proximity } from "@/lib/format";
 import { type PlaceSuggestion, isMapsEnabled, resolvePlace, searchPlaces } from "@/lib/maps";
 
 type Props = {
@@ -215,7 +215,12 @@ export function CommerceCombo({
                   <span className="text-[15px] font-medium text-stone-ink">{c.name}</span>
                   {c.distanceMeters != null && (
                     <span className="flex-none text-[12px] font-medium text-brand tabular-nums">
-                      {formatMeters(c.distanceMeters)}
+                      {(() => {
+                        const near = proximity(c.distanceMeters);
+                        return near.unit === "m"
+                          ? t("meters", { value: near.value })
+                          : t("kilometers", { value: near.value });
+                      })()}
                     </span>
                   )}
                 </div>

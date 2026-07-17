@@ -76,7 +76,9 @@
     "searchPlaceholder": "Restaurant, épicerie, pharmacie…",
     "searchAria": "Commerce",
     "searching": "Recherche…",
-    "noResults": "Aucun résultat — essayez « Décrivez-le »"
+    "noResults": "Aucun résultat — essayez « Décrivez-le »",
+    "meters": "{value} m",
+    "kilometers": "{value} km"
   },
   "Delivery": {
     "useLocation": "Utiliser ma position",
