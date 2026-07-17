@@ -1,19 +1,86 @@
 // ============================================================
 // Proxy (Next.js 16's renamed Middleware). Runs on the Node.js runtime.
 //
-// Two jobs, both OPTIMISTIC (the real enforcement is the DAL in
-// src/lib/auth/dal.ts, called inside each protected page/action):
-//   1. Refresh the Supabase auth session cookie on dashboard/admin routes.
-//   2. Redirect signed-out visitors away from those routes to /login.
+// Two unrelated jobs, split by path:
 //
-// Scoped by `config.matcher` to /dashboard and /admin only, so the public
-// ordering pages (/t/[slug]) and the API stay untouched and fast.
+//   1. PUBLIC (/ and /t/[slug]) — send the visitor to a locale-prefixed URL.
+//      No Supabase call happens on this branch, deliberately: these pages are
+//      unauthenticated and a session round-trip would tax every shop link for
+//      nothing.
+//
+//   2. PROTECTED (/dashboard, /admin) — refresh the Supabase session cookie
+//      and bounce signed-out visitors to /login. OPTIMISTIC only; the real
+//      enforcement is the DAL in src/lib/auth/dal.ts, called inside each
+//      protected page/action.
+//
+// The locale redirect is also what keeps already-shared /t/[slug] links alive
+// now that the pages live under /[lang]/t/[slug].
 // ============================================================
 
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { DEFAULT_LOCALE, LOCALE_COOKIE, hasLocale, type Locale } from "@/i18n/locales";
 
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (pathname.startsWith("/dashboard") || pathname.startsWith("/admin")) {
+    return authenticate(request);
+  }
+  return redirectToLocale(request, pathname);
+}
+
+// ---- 1. public: locale routing ----
+
+function redirectToLocale(request: NextRequest, pathname: string) {
+  const locale = preferredLocale(request);
+  const url = request.nextUrl.clone();
+  // "/" becomes "/fr", not "/fr/"; "/t/x" becomes "/fr/t/x".
+  url.pathname = pathname === "/" ? `/${locale}` : `/${locale}${pathname}`;
+  return NextResponse.redirect(url);
+}
+
+function preferredLocale(request: NextRequest): Locale {
+  // An explicit choice outranks the browser's guess.
+  const chosen = request.cookies.get(LOCALE_COOKIE)?.value;
+  if (hasLocale(chosen)) return chosen;
+  return fromAcceptLanguage(request.headers.get("accept-language"));
+}
+
+/**
+ * Picks a locale from an Accept-Language header, honouring q-weights.
+ *
+ * Hand-rolled rather than pulling in Negotiator and intl-localematcher, which
+ * the Next.js guide suggests: with two locales and a hard default, matching is
+ * a lookup, not a negotiation.
+ */
+function fromAcceptLanguage(header: string | null): Locale {
+  if (!header) return DEFAULT_LOCALE;
+
+  const ranked = header
+    .split(",")
+    .map((part) => {
+      const [tag, ...params] = part.trim().split(";");
+      const q = params.find((p) => p.trim().startsWith("q="));
+      return {
+        tag: tag.trim().toLowerCase(),
+        q: q ? Number(q.split("=")[1]) || 0 : 1,
+      };
+    })
+    .sort((a, b) => b.q - a.q);
+
+  for (const { tag } of ranked) {
+    // Any Arabic maps to derja. The readers are Tunisian and no other Arabic
+    // is on offer, so ar-EG is better served derja than French.
+    if (tag === "ar" || tag.startsWith("ar-")) return "ar-TN";
+    if (tag === "fr" || tag.startsWith("fr-")) return "fr";
+  }
+  return DEFAULT_LOCALE;
+}
+
+// ---- 2. protected: supabase session ----
+
+async function authenticate(request: NextRequest) {
   // Inert until Supabase is configured (keeps /dashboard from 500-ing before
   // the anon key is set).
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -53,5 +120,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/admin/:path*"],
+  // Only the four shapes above. Anything already carrying a locale (/fr/…)
+  // needs no redirect, so it never reaches the proxy at all.
+  matcher: ["/", "/t/:path*", "/dashboard/:path*", "/admin/:path*"],
 };

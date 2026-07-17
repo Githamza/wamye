@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 
@@ -82,19 +83,19 @@ export function LoginForm({ next }: { next: string }) {
         >
           {busy ? "Connexion…" : "Se connecter"}
         </button>
-        <a
+        <Link
           href="/auth/forgot"
           className="self-center text-[13px] text-brand underline underline-offset-[3px]"
         >
           Mot de passe oublié ?
-        </a>
+        </Link>
       </form>
 
       <div className="flex items-center justify-center gap-1.5 text-[13px] text-stone-muted">
         <span>Pas encore de compte ?</span>
-        <a href="/signup" className="font-medium text-brand underline underline-offset-[3px]">
+        <Link href="/signup" className="font-medium text-brand underline underline-offset-[3px]">
           Créer un compte livreur
-        </a>
+        </Link>
       </div>
 
       {googleEnabled && (

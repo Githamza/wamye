@@ -57,6 +57,13 @@ function boundsFromZone(zone: Zone) {
 let configured = false;
 function configure(): void {
   if (configured || !isMapsEnabled()) return;
+  // `language: "fr"` stays fixed, and does not follow the ar-TN locale.
+  //
+  // Two reasons. Practically, this loader is a module-scope singleton that
+  // warns if reconfigured, so it cannot vary per page anyway. And by choice:
+  // Tunisian place names are read in Latin script on maps, and Google's Arabic
+  // for Tunisia transliterates them into unfamiliar MSA forms — a derja reader
+  // looking for "Houmt Souk" would be handed "حومة السوق".
   setOptions({ key: BROWSER_KEY, v: "weekly", language: "fr", region: "TN" });
   configured = true;
 }
@@ -158,6 +165,8 @@ export async function searchPlaces(
     // Distance is measured from here → nearest shops surface first.
     origin,
     ...(opts.regionCode ? { includedRegionCodes: [opts.regionCode] } : {}),
+    // Matches the loader's fixed language — see configure() for why the map
+    // and its place names stay French even for a derja reader.
     language: "fr",
   });
 

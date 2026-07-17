@@ -1,0 +1,30 @@
+{
+  "Metadata": {
+    "title": "Wamye — Livraison en Tunisie",
+    "description": "Trouvez un livreur près de chez vous. Repas, courses, pharmacie : un livreur confirme le prix avant achat, vous payez à la livraison."
+  },
+  "Landing": {
+    "driverArea": "Espace livreur",
+    "heroTitle": "Tout ce qu'il vous faut,<br></br>livré près de chez vous.",
+    "heroBody": "Wamye réunit les services de livraison de Tunisie. Repas, courses, pharmacie : un livreur de votre région s'en charge, confirme le prix avant d'acheter, et vous payez à la livraison.",
+    "directoryHeading": "Livreurs disponibles",
+    "regionCount": "{count, plural, one {# région} other {# régions}}",
+    "emptyTitle": "Aucun livreur n'est disponible pour le moment.",
+    "emptyBody": "Revenez bientôt — de nouvelles régions arrivent.",
+    "stepsHeading": "Comment ça marche",
+    "step1Title": "Choisissez un commerce",
+    "step1Body": "Restaurant, épicerie, pâtisserie ou pharmacie — dites simplement ce qu'il vous faut.",
+    "step2Title": "Le livreur confirme le prix",
+    "step2Body": "Il vérifie la disponibilité et vous annonce le total avant d'acheter. Aucune surprise.",
+    "step3Title": "Payez à la livraison",
+    "step3Body": "Vous réglez en espèces à l'arrivée, à votre porte.",
+    "ctaHeading": "Vous êtes livreur ?",
+    "ctaBody": "Inscrivez votre service, couvrez votre région et recevez vos commandes sur Wamye.",
+    "ctaAction": "Créer un compte",
+    "footer": "Wamye — livraison en Tunisie."
+  },
+  "Status": {
+    "open": "Ouvert",
+    "closed": "Fermé"
+  }
+}

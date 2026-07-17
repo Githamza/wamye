@@ -1,16 +1,22 @@
-import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
-import { Toaster } from "@/components/ui/sonner";
+// ============================================================
+// Root layout for the driver dashboard, admin and auth pages.
+//
+// The second of two root layouts; the localised customer surface lives under
+// [lang] with its own <html>. This group keeps unprefixed URLs (/dashboard,
+// /login) because a driver's locale will come from their profile rather than
+// the address bar — a signed-in tool has no reason to carry a locale in a link
+// the way a shared shop page does.
+//
+// Hardcoded to French until that profile preference exists.
+// ============================================================
 
-const inter = Inter({
-  variable: "--font-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-});
+import type { Metadata, Viewport } from "next";
+import { Toaster } from "@/components/ui/sonner";
+import { fontVariables } from "@/app/fonts";
+import "../globals.css";
 
 // Platform-level defaults. Each tenant's ordering page overrides the title
-// with its own branding via generateMetadata (see app/t/[slug]/page.tsx).
+// with its own branding via generateMetadata (see app/[lang]/t/[slug]/page.tsx).
 export const metadata: Metadata = {
   title: "Wamye — Livraison en Tunisie",
   description:
@@ -31,13 +37,13 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+export default function AppRootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" className={`${inter.variable} h-full antialiased`}>
+    <html lang="fr" dir="ltr" className={`${fontVariables} h-full antialiased`}>
       <body className="min-h-full bg-page">
         {children}
         <Toaster position="bottom-center" />
