@@ -6,6 +6,31 @@
 /** Coarse delivery stage that drives the confirm-screen timeline. */
 export type OrderStage = "searching" | "enroute" | "delivered" | "canceled";
 
+/**
+ * Why an API call failed.
+ *
+ * A code, not a sentence. These routes are public and sit outside the proxy's
+ * matcher, so they have no locale to word an error in; the browser knows which
+ * language the reader asked for and does it there. Mirrors how the server
+ * actions in @/lib/actions report failure.
+ *
+ * Every value has a message under the "ApiError" namespace in src/messages.
+ */
+export type ApiErrorCode =
+  | "routing-unavailable"
+  | "bad-request"
+  | "bad-coordinates"
+  | "out-of-zone"
+  | "no-route"
+  | "routing-failed"
+  | "incomplete-order"
+  | "orders-unavailable"
+  | "create-failed"
+  | "tracking-unavailable";
+
+/** The shape every API route returns on failure. */
+export type ApiErrorBody = { error: ApiErrorCode };
+
 /** A point on the map. */
 export type LatLng = { lat: number; lng: number };
 

@@ -17,7 +17,7 @@ export async function GET(
   const fbCtx = await resolveFleetbaseContext(slug);
   if (!fbCtx) {
     return NextResponse.json(
-      { error: "Le service de commande n'est pas configuré." },
+      { error: "orders-unavailable" },
       { status: 503 },
     );
   }
@@ -33,7 +33,7 @@ export async function GET(
     const status = err instanceof FleetbaseError ? err.status : 500;
     console.error(`[orders/${id}] status failed:`, (err as Error).message);
     return NextResponse.json(
-      { error: "Suivi indisponible." },
+      { error: "tracking-unavailable" },
       { status: status === 404 ? 404 : 502 },
     );
   }

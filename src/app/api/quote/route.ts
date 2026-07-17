@@ -30,7 +30,7 @@ function isValidBody(b: unknown): b is QuoteInput {
 export async function POST(request: Request) {
   if (!isConfigured()) {
     return NextResponse.json(
-      { error: "Le calcul d'itinéraire n'est pas configuré." },
+      { error: "routing-unavailable" },
       { status: 503 },
     );
   }
@@ -39,12 +39,12 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Requête invalide." }, { status: 400 });
+    return NextResponse.json({ error: "bad-request" }, { status: 400 });
   }
 
   if (!isValidBody(body)) {
     return NextResponse.json(
-      { error: "Coordonnées manquantes ou invalides." },
+      { error: "bad-coordinates" },
       { status: 400 },
     );
   }
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
   const { zone, feeConfig } = await resolvePublicConfig(slug);
   if (!isInZone(body.destination, zone)) {
     return NextResponse.json(
-      { error: "Adresse hors zone de livraison." },
+      { error: "out-of-zone" },
       { status: 422 },
     );
   }
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     // No drivable route (e.g. a pin dropped in the sea off Djerba).
     if (!leg) {
       return NextResponse.json(
-        { error: "Aucun itinéraire routier vers cette adresse." },
+        { error: "no-route" },
         { status: 422 },
       );
     }
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
     // Log server-side for debugging; don't leak internals to the client.
     console.error("[quote] route computation failed:", message);
     return NextResponse.json(
-      { error: "Impossible de calculer l'itinéraire." },
+      { error: "routing-failed" },
       { status: status >= 500 ? 502 : status },
     );
   }

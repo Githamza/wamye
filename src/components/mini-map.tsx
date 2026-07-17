@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   DJERBA_CENTER,
   MAP_ID,
@@ -16,15 +17,14 @@ type Props = {
   onPositionChange?: (pos: { lat: number; lng: number }) => void;
 };
 
-const HINT = "Déplacez le pin si besoin";
-
 /** Frame + caption shared by the real map and the mock, so they swap cleanly. */
 function MapFrame({ children }: { children: React.ReactNode }) {
+  const t = useTranslations("Delivery");
   return (
     <div className="anim-fade-in relative aspect-[16/9] w-full overflow-hidden rounded-[10px] border border-[#D6E0DB] bg-[#E5EDE9]">
       {children}
       <div className="pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-lg bg-white/90 px-2.5 py-1 text-xs text-[#57534E]">
-        {HINT}
+        {t("mapHint")}
       </div>
     </div>
   );
@@ -64,6 +64,7 @@ function MockMap() {
 }
 
 export function MiniMap({ position, onPositionChange }: Props) {
+  const t = useTranslations("Delivery");
   const hostRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -75,6 +76,12 @@ export function MiniMap({ position, onPositionChange }: Props) {
   useEffect(() => {
     onChange.current = onPositionChange;
   }, [onPositionChange]);
+
+  // The marker's tooltip, held in a ref for the same reason.
+  const hint = useRef(t("mapHint"));
+  useEffect(() => {
+    hint.current = t("mapHint");
+  }, [t]);
 
   // Read once for the initial centre; later prop changes are handled by the
   // sync effect below, so the map is never rebuilt mid-drag.
@@ -106,7 +113,7 @@ export function MiniMap({ position, onPositionChange }: Props) {
           map,
           position: centerRef.current,
           gmpDraggable: true,
-          title: HINT,
+          title: hint.current,
         });
 
         // The new position lives on the marker, not on the event.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -13,14 +14,14 @@ import type { Commerce, TenantPublicConfig } from "@/lib/config-types";
 import { evaluatePosition, simulatedPosition } from "@/lib/geo";
 import { formatDinar } from "@/lib/format";
 import { formatPhone, isValidPhone, normalizePhone } from "@/lib/phone";
-import { closedLabel, isOpenNow, openLabel } from "@/lib/hours";
+import { closedState, isOpenNow } from "@/lib/hours";
 import {
   type LastOrder,
   loadLastOrder,
   nextCourseNumber,
   saveLastOrder,
 } from "@/lib/storage";
-import type { Quote } from "@/lib/order-types";
+import type { ApiErrorBody, Quote } from "@/lib/order-types";
 
 type Screen = "order" | "confirm";
 
@@ -28,17 +29,17 @@ type Screen = "order" | "confirm";
 type BlockedReason = "outzone" | "order" | "commerce" | "position" | "phone";
 
 /**
- * A whole sentence per cause, rather than "Il manque : " glued to a fragment.
+ * One whole message per cause, rather than "Il manque : " glued to a fragment.
  * Arabic cannot take the fragment form — word order and agreement change per
- * cause — and the glue read as nonsense for `outzone` regardless of language:
- * an address outside the zone is not a field the customer forgot to fill.
+ * cause — and the glue read as nonsense for `outzone` in any language: an
+ * address outside the zone is not a field the customer forgot to fill.
  */
-const BLOCKED_MESSAGE: Record<BlockedReason, string> = {
-  outzone: "Adresse hors zone de livraison",
-  order: "Il manque : votre commande",
-  commerce: "Il manque : un commerce",
-  position: "Il manque : votre position",
-  phone: "Il manque : votre numéro",
+const BLOCKED_KEY: Record<BlockedReason, string> = {
+  outzone: "blockedOutzone",
+  order: "blockedOrder",
+  commerce: "blockedCommerce",
+  position: "blockedPosition",
+  phone: "blockedPhone",
 };
 
 // Minimal typing for the PWA install prompt event.
@@ -54,6 +55,11 @@ type InstallPromptEvent = Event & {
  * routes act on the right Fleetbase company.
  */
 export function OrderApp({ config }: { config: TenantPublicConfig }) {
+  const t = useTranslations("Order");
+  const tHours = useTranslations("Hours");
+  const tStatus = useTranslations("Status");
+  const tApiError = useTranslations("ApiError");
+
   // ---- form state ----
   const [order, setOrder] = useState("");
   const [commerce, setCommerce] = useState<Commerce | null>(null);
@@ -171,10 +177,10 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
 
   const canSubmit = blocked === null;
   const ctaLabel = submitting
-    ? "Envoi…"
+    ? t("submitting")
     : canSubmit && fee !== null
-      ? `Commander · Livraison ${formatDinar(fee)}`
-      : "Commander";
+      ? t("submitWithFee", { fee: formatDinar(fee) })
+      : t("submit");
 
   // ---- handlers ----
   /**
@@ -220,12 +226,17 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
 
   /**
    * Every way a submit can fail offers the same reassurance and the same way
-   * back in; only the headline differs when the server supplies its own.
+   * back in; only the headline differs when the server names a cause.
+   *
+   * The API reports codes rather than sentences (it has no locale), so an
+   * unrecognised one — an older deploy, say — falls back rather than showing
+   * the reader a raw identifier.
    */
-  function toastSubmitFailed(serverMessage?: string) {
-    toast.error(serverMessage ?? "Échec de l'envoi — réessayez", {
-      description: "Votre commande est conservée",
-      action: { label: "Réessayer", onClick: () => submitOrder() },
+  function toastSubmitFailed(code?: string) {
+    const headline = code && tApiError.has(code) ? tApiError(code) : t("sendFailed");
+    toast.error(headline, {
+      description: t("sendFailedDescription"),
+      action: { label: t("retry"), onClick: () => submitOrder() },
     });
   }
 
@@ -262,7 +273,7 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
       });
 
       if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        const data = (await res.json().catch(() => null)) as Partial<ApiErrorBody> | null;
         toastSubmitFailed(data?.error);
         return;
       }
@@ -301,7 +312,7 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
       setDescribeText(returning.commerceName);
     }
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: "smooth" });
-    toast("Commande pré-remplie — ajoutez votre position pour valider");
+    toast(t("reorderToast"));
   }
 
   async function handleInstall() {
@@ -311,7 +322,7 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
       installPrompt.current = null;
       setShowPwa(false);
     } else {
-      toast("Menu du navigateur → « Ajouter à l'écran d'accueil »");
+      toast(t("installHint"));
     }
   }
 
@@ -337,7 +348,12 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
               />
               {/* Both halves are standalone labels, so the join survives
                   translation; only the two labels themselves need keys. */}
-              {[isOpen ? openLabel(config.hours) : "Fermé", config.branding.areaLabel]
+              {[
+                isOpen
+                  ? tHours("openUntil", { hour: config.hours.closeHour })
+                  : tStatus("closed"),
+                config.branding.areaLabel,
+              ]
                 .filter(Boolean)
                 .join(" · ")}
             </div>
@@ -347,7 +363,9 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
         {/* Returning-customer welcome */}
         {mounted && returning && screen === "order" && (
           <div className="anim-fade-in flex-none border-b border-brand-border bg-brand-bg px-5 py-2.5 text-[15px] font-medium text-brand-ink">
-            Re-bonjour {returning.prenom || "à vous"} 👋
+            {returning.prenom
+              ? t("welcomeBack", { name: returning.prenom })
+              : t("welcomeBackFallback")}
           </div>
         )}
 
@@ -364,7 +382,7 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
                 <div className="flex items-center gap-3 rounded-[14px] border border-brand-border bg-white p-4 shadow-[0_1px_2px_rgba(28,25,23,0.04)]">
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <div className="text-[13px] font-semibold text-brand">
-                      Recommander comme la dernière fois
+                      {t("reorderTitle")}
                     </div>
                     <div className="truncate text-[14px] text-stone-muted2">
                       {returning.order} · {returning.commerceName}
@@ -375,7 +393,7 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
                     onClick={handleRecommander}
                     className="h-11 flex-none rounded-[10px] bg-brand px-4 text-[14px] font-semibold text-white transition-colors hover:bg-brand-hover"
                   >
-                    Recommander
+                    {t("reorderAction")}
                   </button>
                 </div>
               )}
@@ -383,13 +401,13 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
               {/* VOTRE COMMANDE */}
               <section className="flex flex-col gap-3 rounded-[14px] border border-hair bg-white p-4 shadow-[0_1px_2px_rgba(28,25,23,0.04)]">
                 <div className="text-xs font-semibold uppercase tracking-[0.08em] text-stone-muted">
-                  Votre commande
+                  {t("sectionOrder")}
                 </div>
                 <Textarea
                   value={order}
                   onChange={(e) => setOrder(e.target.value)}
-                  placeholder="Ex : 2 makloub thon + 1 coca bien frais"
-                  aria-label="Votre commande"
+                  placeholder={t("orderPlaceholder")}
+                  aria-label={t("orderAria")}
                   className="min-h-[66px] resize-none rounded-[10px] text-[15px] leading-normal"
                 />
                 <CommerceCombo
@@ -411,14 +429,14 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
                   }}
                   className="self-start text-[13px] text-brand underline underline-offset-[3px]"
                 >
-                  {describe ? "Choisir dans la liste" : "Introuvable ? Décrivez-le"}
+                  {describe ? t("listToggle") : t("describeToggle")}
                 </button>
               </section>
 
               {/* LIVRAISON */}
               <section className="flex flex-col gap-3 rounded-[14px] border border-hair bg-white p-4 shadow-[0_1px_2px_rgba(28,25,23,0.04)]">
                 <div className="text-xs font-semibold uppercase tracking-[0.08em] text-stone-muted">
-                  Livraison
+                  {t("sectionDelivery")}
                 </div>
                 <DeliveryBlock
                   status={deliveryStatus}
@@ -439,14 +457,16 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
               {/* VOS COORDONNÉES */}
               <section className="flex flex-col gap-3 rounded-[14px] border border-hair bg-white p-4 shadow-[0_1px_2px_rgba(28,25,23,0.04)]">
                 <div className="text-xs font-semibold uppercase tracking-[0.08em] text-stone-muted">
-                  Vos coordonnées
+                  {t("sectionContact")}
                 </div>
+                {/* The dial code sits at the line's start and its divider on the
+                    inner edge, so both follow the writing direction. */}
                 <div
                   className={`relative flex h-12 items-stretch overflow-hidden rounded-[10px] border ${
                     phoneFocus ? "border-brand ring-[3px] ring-brand/15" : "border-hair"
                   }`}
                 >
-                  <div className="flex flex-none items-center border-r border-hair bg-hair-2 px-3 text-[15px] text-stone-muted">
+                  <div className="flex flex-none items-center border-e border-hair bg-hair-2 px-3 text-[15px] text-stone-muted">
                     +216
                   </div>
                   <input
@@ -455,24 +475,24 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
                     onFocus={() => setPhoneFocus(true)}
                     onBlur={() => setPhoneFocus(false)}
                     inputMode="numeric"
-                    placeholder="22 483 921"
-                    aria-label="Téléphone"
-                    className="min-w-0 flex-1 bg-white px-3.5 pr-10 text-[15px] text-stone-ink outline-none"
+                    placeholder={t("phonePlaceholder")}
+                    aria-label={t("phoneAria")}
+                    className="min-w-0 flex-1 bg-white px-3.5 pe-10 text-[15px] text-stone-ink outline-none"
                   />
                   {phoneValid && (
-                    <Check className="absolute right-3 top-1/2 size-5 -translate-y-1/2 text-success" strokeWidth={2} />
+                    <Check className="absolute end-3 top-1/2 size-5 -translate-y-1/2 text-success" strokeWidth={2} />
                   )}
                 </div>
                 <div className="relative">
                   <Input
                     value={prenom}
                     onChange={(e) => setPrenom(e.target.value)}
-                    placeholder="Prénom (facultatif)"
-                    aria-label="Prénom"
-                    className="h-12 rounded-[10px] pr-10 text-[15px]"
+                    placeholder={t("firstNamePlaceholder")}
+                    aria-label={t("firstNameAria")}
+                    className="h-12 rounded-[10px] pe-10 text-[15px]"
                   />
                   {prenom.trim() !== "" && (
-                    <Check className="absolute right-3 top-1/2 size-5 -translate-y-1/2 text-success" strokeWidth={2} />
+                    <Check className="absolute end-3 top-1/2 size-5 -translate-y-1/2 text-success" strokeWidth={2} />
                   )}
                 </div>
               </section>
@@ -482,7 +502,7 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
             <footer className="flex flex-none flex-col gap-2 bg-white px-4 pb-[calc(24px+env(safe-area-inset-bottom,0px))] pt-3 shadow-[0_-4px_16px_rgba(28,25,23,0.07)]">
               {isOpen && blocked && (
                 <div className="text-center text-[13px] text-stone-muted">
-                  {BLOCKED_MESSAGE[blocked]}
+                  {t(BLOCKED_KEY[blocked])}
                 </div>
               )}
               <button
@@ -510,8 +530,8 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
             onProblem={() =>
               toast(
                 supportPhone
-                  ? `Écrivez-nous sur WhatsApp au ${supportPhone}`
-                  : "Contactez le support",
+                  ? t("supportWhatsApp", { phone: supportPhone })
+                  : t("supportFallback"),
               )
             }
             onInstall={handleInstall}
@@ -522,7 +542,7 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
 
         {/* ---------- CLOSED OVERLAY ---------- */}
         {mounted && !open && screen === "order" && (
-          <ClosedOverlay title={closedLabel(config.hours)} />
+          <ClosedOverlay {...closedState(config.hours)} />
         )}
       </div>
     </div>

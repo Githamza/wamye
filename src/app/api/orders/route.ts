@@ -28,12 +28,12 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Requête invalide." }, { status: 400 });
+    return NextResponse.json({ error: "bad-request" }, { status: 400 });
   }
 
   if (!isValidBody(body)) {
     return NextResponse.json(
-      { error: "Commande incomplète (commande, commerce ou numéro manquant)." },
+      { error: "incomplete-order" },
       { status: 400 },
     );
   }
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
   const ctx = await resolveFleetbaseContext(slug);
   if (!ctx) {
     return NextResponse.json(
-      { error: "Le service de commande n'est pas configuré." },
+      { error: "orders-unavailable" },
       { status: 503 },
     );
   }
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
     // Log server-side for debugging; don't leak internals to the client.
     console.error("[orders] create failed:", message);
     return NextResponse.json(
-      { error: "Échec de l'envoi de la commande. Réessayez." },
+      { error: "create-failed" },
       { status: status >= 500 ? 502 : status },
     );
   }

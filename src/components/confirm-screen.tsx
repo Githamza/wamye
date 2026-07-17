@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { MessageCircle, X } from "lucide-react";
 import { formatDinar } from "@/lib/format";
 import type { OrderStage, OrderStatus } from "@/lib/order-types";
@@ -66,6 +67,7 @@ export function ConfirmScreen({
   showPwa,
   onDismissPwa,
 }: Props) {
+  const t = useTranslations("Confirm");
   // Start optimistic; live polling refines this once the order exists.
   const [stage, setStage] = useState<OrderStage>("searching");
   const [tracking, setTracking] = useState<string | null>(null);
@@ -148,15 +150,18 @@ export function ConfirmScreen({
             />
           </svg>
           <div className="text-xl font-semibold text-stone-ink">
-            {delivered ? "Commande livrée !" : "Commande envoyée !"}
+            {delivered ? t("delivered") : t("sent")}
           </div>
           <div className="flex flex-wrap items-center justify-center gap-1.5">
             <div className="rounded-full border border-hair bg-hair-2 px-3 py-1 text-[13px] font-medium text-stone-muted2">
-              Course #{courseNumber}
+              {/* The message must keep `{number}` bare. Typing it as
+                  `{number, number}` would group it into "#1 047" — it is an
+                  identifier, not a quantity. */}
+              {t("courseNumber", { number: courseNumber })}
             </div>
             {tracking && (
               <div className="rounded-full border border-hair bg-hair-2 px-3 py-1 text-[13px] font-medium text-stone-muted2">
-                Suivi {tracking}
+                {t("tracking", { number: tracking })}
               </div>
             )}
           </div>
@@ -164,7 +169,7 @@ export function ConfirmScreen({
 
         {canceled && (
           <div className="rounded-[14px] border border-danger-border bg-danger-bg px-4 py-3.5 text-[14px] leading-normal text-danger-ink">
-            Cette commande a été annulée. Écrivez-nous si besoin.
+            {t("canceled")}
           </div>
         )}
 
@@ -177,11 +182,9 @@ export function ConfirmScreen({
             </div>
             <div className="flex flex-col gap-px pb-[22px]">
               <div className={`text-[15px] font-semibold ${labelClass("searching", stage)}`}>
-                Recherche d&apos;un livreur
+                {t("stageSearching")}
               </div>
-              <div className="text-[13px] text-stone-muted">
-                Quelques minutes, on vous tient au courant
-              </div>
+              <div className="text-[13px] text-stone-muted">{t("stageSearchingHint")}</div>
             </div>
           </div>
           <div className="flex gap-3.5">
@@ -192,7 +195,7 @@ export function ConfirmScreen({
             <div
               className={`pb-[22px] text-[15px] font-medium ${labelClass("enroute", stage)}`}
             >
-              Livreur en route
+              {t("stageEnroute")}
             </div>
           </div>
           <div className="flex gap-3.5">
@@ -200,7 +203,7 @@ export function ConfirmScreen({
               <TimelineDot state={dotFor("delivered", stage)} />
             </div>
             <div className={`text-[15px] font-medium ${labelClass("delivered", stage)}`}>
-              Livré
+              {t("stageDelivered")}
             </div>
           </div>
         </div>
@@ -211,7 +214,8 @@ export function ConfirmScreen({
           <div className="text-[14px] text-stone-muted">{commerceName}</div>
           {fee !== null && (
             <div className="text-[14px] text-stone-muted">
-              Frais : <span className="font-semibold text-amber">{formatDinar(fee)}</span>
+              {t("recapFee")}{" "}
+              <span className="font-semibold text-amber">{formatDinar(fee)}</span>
             </div>
           )}
         </div>
@@ -222,26 +226,26 @@ export function ConfirmScreen({
           className="flex h-12 w-full items-center justify-center gap-2 rounded-[10px] border border-hair bg-white text-[15px] font-medium text-stone-ink transition-colors hover:border-brand-border hover:bg-brand-bg"
         >
           <MessageCircle className="size-5 text-brand" strokeWidth={1.5} />
-          Un problème ? Écrivez-nous
+          {t("problem")}
         </button>
       </div>
 
       {showPwa && (
         <div className="anim-fade-up flex flex-none items-center gap-3 border-t border-brand-border bg-brand-bg px-4 pb-[calc(24px+env(safe-area-inset-bottom,0px))] pt-3.5">
           <div className="flex-1 text-[13px] leading-snug text-brand-ink">
-            Ajoutez {brandName ?? "cette app"} à votre écran d&apos;accueil pour recommander en 2 taps
+            {t("pwaPrompt", { name: brandName ?? t("pwaFallbackName") })}
           </div>
           <button
             type="button"
             onClick={onInstall}
             className="h-10 flex-none rounded-[10px] bg-brand px-4 text-[14px] font-semibold text-white transition-colors hover:bg-brand-hover"
           >
-            Ajouter
+            {t("pwaAdd")}
           </button>
           <button
             type="button"
             onClick={onDismissPwa}
-            aria-label="Fermer"
+            aria-label={t("pwaDismiss")}
             className="flex size-8 flex-none items-center justify-center rounded-lg text-stone-muted transition-colors hover:bg-brand-fill"
           >
             <X className="size-4" strokeWidth={1.5} />

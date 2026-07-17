@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Check, Loader2, Store, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import type { Commerce, Zone } from "@/lib/config-types";
@@ -50,6 +51,7 @@ export function CommerceCombo({
   describeValue,
   onDescribeChange,
 }: Props) {
+  const t = useTranslations("Commerce");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [placeRows, setPlaceRows] = useState<Row[]>([]);
@@ -132,13 +134,13 @@ export function CommerceCombo({
   if (describe) {
     return (
       <div className="relative">
-        <Store className="pointer-events-none absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-stone-muted" />
+        <Store className="pointer-events-none absolute start-3.5 top-1/2 size-5 -translate-y-1/2 text-stone-muted" />
         <Input
           value={describeValue}
           onChange={(e) => onDescribeChange(e.target.value)}
-          placeholder="Décrivez le commerce (nom, rue, repère…)"
-          aria-label="Décrire le commerce"
-          className="h-12 rounded-[10px] pl-[42px] text-[15px]"
+          placeholder={t("describePlaceholder")}
+          aria-label={t("describeAria")}
+          className="h-12 rounded-[10px] ps-[42px] text-[15px]"
         />
       </div>
     );
@@ -156,7 +158,7 @@ export function CommerceCombo({
         <button
           type="button"
           onClick={() => onSelect(null)}
-          aria-label="Retirer le commerce"
+          aria-label={t("removeAria")}
           className="flex size-8 shrink-0 items-center justify-center rounded-lg text-stone-muted transition-colors hover:bg-brand-fill"
         >
           <X className="size-4" strokeWidth={1.5} />
@@ -173,7 +175,7 @@ export function CommerceCombo({
   return (
     <div className="relative flex flex-col">
       <div className="relative">
-        <Store className="pointer-events-none absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-stone-muted" />
+        <Store className="pointer-events-none absolute start-3.5 top-1/2 size-5 -translate-y-1/2 text-stone-muted" />
         <Input
           value={query}
           onChange={(e) => {
@@ -182,13 +184,13 @@ export function CommerceCombo({
           }}
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 120)}
-          placeholder="Restaurant, épicerie, pharmacie…"
-          aria-label="Commerce"
+          placeholder={t("searchPlaceholder")}
+          aria-label={t("searchAria")}
           disabled={resolving}
-          className="h-12 rounded-[10px] pl-[42px] pr-10 text-[15px]"
+          className="h-12 rounded-[10px] ps-[42px] pe-10 text-[15px]"
         />
         {busy && (
-          <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-stone-muted" />
+          <Loader2 className="absolute end-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-stone-muted" />
         )}
       </div>
 
@@ -196,7 +198,7 @@ export function CommerceCombo({
         <div className="anim-fade-in absolute top-full z-10 mt-1.5 flex w-full flex-col overflow-hidden rounded-[10px] border border-hair bg-white shadow-[0_8px_24px_rgba(28,25,23,0.10)]">
           {rows.length === 0 ? (
             <div className="p-3.5 text-center text-[14px] text-stone-muted">
-              {busy ? "Recherche…" : "Aucun résultat — essayez « Décrivez-le »"}
+              {busy ? t("searching") : t("noResults")}
             </div>
           ) : (
             rows.map((c, i) => (
@@ -205,7 +207,7 @@ export function CommerceCombo({
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => pick(c)}
-                className={`flex min-h-12 w-full flex-col items-start gap-px px-3.5 py-2.5 text-left transition-colors hover:bg-brand-bg ${
+                className={`flex min-h-12 w-full flex-col items-start gap-px px-3.5 py-2.5 text-start transition-colors hover:bg-brand-bg ${
                   i === 0 ? "bg-brand-bg" : "border-t border-hair-2"
                 }`}
               >

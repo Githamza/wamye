@@ -34,13 +34,22 @@ export function isOpenNowIn(
   return h >= hours.openHour && h < hours.closeHour;
 }
 
-export function closedLabel(hours: Hours, now = new Date()): string {
-  const afterClose = now.getHours() >= hours.closeHour;
-  return afterClose
-    ? `Fermé — réouverture demain à ${hours.openHour}h`
-    : `Fermé — réouverture à ${hours.openHour}h`;
-}
+/**
+ * When a closed shop opens again.
+ *
+ * State, not a sentence. This module used to return "Fermé — réouverture
+ * demain à 8h" fully assembled, which left UI text in a pure library and hard-
+ * coded the French "8h" hour format; the caller now renders it from messages.
+ */
+export type ClosedState = {
+  /** Past closing time, so the next opening is tomorrow rather than later today. */
+  reopensTomorrow: boolean;
+  openHour: number;
+};
 
-export function openLabel(hours: Hours): string {
-  return `Ouvert jusqu'à ${hours.closeHour}h`;
+export function closedState(hours: Hours, now = new Date()): ClosedState {
+  return {
+    reopensTomorrow: now.getHours() >= hours.closeHour,
+    openHour: hours.openHour,
+  };
 }

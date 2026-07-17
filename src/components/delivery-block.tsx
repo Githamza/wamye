@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Crosshair, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { MiniMap } from "@/components/mini-map";
@@ -56,6 +57,7 @@ export function DeliveryBlock({
   onUseLocation,
   areaLabel,
 }: Props) {
+  const t = useTranslations("Delivery");
   const located = status === "ready" || status === "outzone";
   const onRoad = quoteSource === "road";
 
@@ -68,7 +70,7 @@ export function DeliveryBlock({
           className="flex h-12 w-full items-center justify-center gap-2 rounded-[10px] border border-hair bg-white text-[15px] font-medium text-brand transition-colors hover:border-brand-border hover:bg-brand-bg"
         >
           <Crosshair className="size-5" strokeWidth={1.5} />
-          Utiliser ma position
+          {t("useLocation")}
         </button>
       )}
 
@@ -80,7 +82,7 @@ export function DeliveryBlock({
             className="flex h-12 w-full items-center justify-center gap-2 rounded-[10px] border border-hair bg-white text-[15px] font-medium text-brand opacity-60"
           >
             <Crosshair className="size-5 animate-pulse" strokeWidth={1.5} />
-            Localisation…
+            {t("locating")}
           </button>
           <FeeSkeleton />
         </>
@@ -92,8 +94,8 @@ export function DeliveryBlock({
         <Input
           value={repere}
           onChange={(e) => onRepere(e.target.value)}
-          placeholder="Ex : maison bleue derrière la pharmacie"
-          aria-label="Repère (facultatif)"
+          placeholder={t("landmarkPlaceholder")}
+          aria-label={t("landmarkAria")}
           className="h-12 rounded-[10px] text-[15px]"
         />
       )}
@@ -101,14 +103,14 @@ export function DeliveryBlock({
       {status === "ready" && fee !== null && (
         <div className="anim-fade-up flex flex-col gap-1 rounded-xl border border-brand-border bg-brand-bg px-4 py-3.5">
           <div className="flex items-baseline justify-between">
-            <div className="text-[15px] font-medium text-brand-ink">Frais de livraison</div>
+            <div className="text-[15px] font-medium text-brand-ink">{t("feeHeading")}</div>
             <div className="flex items-center gap-1.5 text-[13px] text-stone-muted">
               {quoting && <Loader2 className="size-3.5 animate-spin" />}
               {/* Straight-line distances get a "~"; road distances are exact. */}
               {onRoad
-                ? `${formatKm(distanceKm ?? 0)} par la route`
-                : `~${formatKm(distanceKm ?? 0)}`}
-              {onRoad && durationMin !== null && ` · ${durationMin} min`}
+                ? t("byRoad", { distance: formatKm(distanceKm ?? 0) })
+                : t("estimated", { distance: formatKm(distanceKm ?? 0) })}
+              {onRoad && durationMin !== null && ` · ${t("duration", { minutes: durationMin })}`}
             </div>
           </div>
           <div className="text-[26px] font-extrabold tracking-[-0.01em] text-amber">
@@ -116,21 +118,19 @@ export function DeliveryBlock({
           </div>
           <div className="text-xs text-stone-muted">
             {quoting
-              ? "Calcul de l'itinéraire…"
+              ? t("computingRoute")
               : onRoad
-                ? "Prix du repas confirmé par le livreur avant achat"
-                : "Estimation — choisissez un commerce pour le tarif exact"}
+                ? t("priceConfirmed")
+                : t("estimateHint")}
           </div>
         </div>
       )}
 
       {status === "outzone" && (
         <div className="anim-fade-up flex flex-col gap-1 rounded-xl border border-danger-border bg-danger-bg px-4 py-3.5">
-          <div className="text-[15px] font-semibold text-danger">Hors zone de livraison</div>
+          <div className="text-[15px] font-semibold text-danger">{t("outzoneHeading")}</div>
           <div className="text-[14px] leading-normal text-danger-ink">
-            {areaLabel
-              ? `Désolé, cette adresse est hors de notre zone (${areaLabel} uniquement)`
-              : "Désolé, cette adresse est hors de notre zone de livraison"}
+            {areaLabel ? t("outzoneWithArea", { area: areaLabel }) : t("outzoneBody")}
           </div>
         </div>
       )}

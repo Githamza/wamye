@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { setRequestLocale } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { OrderApp } from "@/components/order-app";
 import { getPageConfig } from "@/lib/tenant";
 import { hasLocale } from "@/i18n/locales";
@@ -11,12 +11,18 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata(
   props: PageProps<"/[lang]/t/[slug]">,
 ): Promise<Metadata> {
-  const { slug } = await props.params;
+  const { lang, slug } = await props.params;
+  if (!hasLocale(lang)) notFound();
+  const t = await getTranslations({ locale: lang, namespace: "TenantMetadata" });
+
   const config = await getPageConfig(slug);
-  if (!config) return { title: "Introuvable" };
+  if (!config) return { title: t("notFound") };
+
   return {
-    title: `${config.branding.name} — Commander`,
-    description: `Commande et livraison — ${config.branding.areaLabel ?? config.branding.name}`,
+    title: t("title", { name: config.branding.name }),
+    description: t("description", {
+      area: config.branding.areaLabel ?? config.branding.name,
+    }),
   };
 }
 
