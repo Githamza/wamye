@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { isOpenNowIn, TUNISIA_TZ } from "@/lib/hours";
 import { listPublicTenants } from "@/lib/tenant";
 import { hasLocale } from "@/i18n/locales";
@@ -40,12 +41,15 @@ export default async function LandingPage({ params }: PageProps<"/[lang]">) {
             Wamye
           </span>
         </div>
-        <Link
-          href="/login"
-          className="rounded-[10px] border border-hair bg-white px-3.5 py-2 text-[13px] font-medium text-stone-muted2 transition-colors hover:bg-hair-2"
-        >
-          {t("driverArea")}
-        </Link>
+        <div className="flex items-center gap-2">
+          <LocaleSwitcher />
+          <Link
+            href="/login"
+            className="rounded-[10px] border border-hair bg-white px-3.5 py-2 text-[13px] font-medium text-stone-muted2 transition-colors hover:bg-hair-2"
+          >
+            {t("driverArea")}
+          </Link>
+        </div>
       </header>
 
       <section className="flex flex-col gap-3">

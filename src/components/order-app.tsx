@@ -10,6 +10,7 @@ import { CommerceCombo } from "@/components/commerce-combo";
 import { DeliveryBlock, type DeliveryStatus } from "@/components/delivery-block";
 import { ConfirmScreen } from "@/components/confirm-screen";
 import { ClosedOverlay } from "@/components/closed-overlay";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import type { Commerce, TenantPublicConfig } from "@/lib/config-types";
 import { evaluatePosition, simulatedPosition } from "@/lib/geo";
 import { formatDinar } from "@/lib/format";
@@ -335,29 +336,39 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
       <div className="relative flex min-h-[100dvh] w-full flex-col overflow-hidden bg-app sm:h-[844px] sm:min-h-0 sm:w-[390px] sm:rounded-[28px] sm:border sm:border-frame sm:shadow-[0_12px_32px_rgba(28,25,23,0.10)]">
         {/* Header */}
         <header className="flex h-[72px] flex-none items-center gap-3 border-b border-hair bg-white px-5">
-          <div className="flex size-10 items-center justify-center rounded-full border border-brand-border bg-brand-bg text-xl">
+          <div className="flex size-10 flex-none items-center justify-center rounded-full border border-brand-border bg-brand-bg text-xl">
             {config.branding.logoEmoji ?? "🛵"}
           </div>
-          <div>
-            <div className="text-base font-semibold text-stone-ink">{config.branding.name}</div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-base font-semibold text-stone-ink">
+              {config.branding.name}
+            </div>
             <div className="mt-0.5 flex items-center gap-1.5 text-[13px] text-stone-muted">
               <span
-                className={`size-2 rounded-full ${
+                className={`size-2 flex-none rounded-full ${
                   isOpen ? "animate-pulse-dot bg-success" : "bg-stone-faint"
                 }`}
               />
-              {/* Both halves are standalone labels, so the join survives
-                  translation; only the two labels themselves need keys. */}
-              {[
-                isOpen
-                  ? tHours("openUntil", { hour: config.hours.closeHour })
-                  : tStatus("closed"),
-                config.branding.areaLabel,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
+              {/* Truncates rather than wraps: the header is a fixed 72px, and
+                  an opening time plus an area name overruns it in either
+                  language. Secondary detail, so clipping it is fine. */}
+              <span className="truncate">
+                {/* Both halves are standalone labels, so the join survives
+                    translation; only the two labels themselves need keys. */}
+                {[
+                  isOpen
+                    ? tHours("openUntil", { hour: config.hours.closeHour })
+                    : tStatus("closed"),
+                  config.branding.areaLabel,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
             </div>
           </div>
+          {/* A shared shop link lands here directly, never passing the landing
+              page — so this is the only switcher most customers will see. */}
+          <LocaleSwitcher />
         </header>
 
         {/* Returning-customer welcome */}
@@ -459,9 +470,13 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
                 <div className="text-xs font-semibold uppercase tracking-[0.08em] text-stone-muted">
                   {t("sectionContact")}
                 </div>
-                {/* The dial code sits at the line's start and its divider on the
-                    inner edge, so both follow the writing direction. */}
+                {/* A phone number is LTR even in an RTL page, so this field
+                    opts out of the paragraph direction. Left to inherit rtl,
+                    bidi reorders the groups — "22 483 921" renders as
+                    "921 483 22" — and puts the neutral "+" on the wrong side
+                    of the dial code, giving "216+". */}
                 <div
+                  dir="ltr"
                   className={`relative flex h-12 items-stretch overflow-hidden rounded-[10px] border ${
                     phoneFocus ? "border-brand ring-[3px] ring-brand/15" : "border-hair"
                   }`}

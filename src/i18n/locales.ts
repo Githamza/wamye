@@ -30,6 +30,21 @@ export function dirOf(locale: Locale): "ltr" | "rtl" {
 }
 
 /**
+ * Each language named in itself, never translated — someone who cannot read
+ * the current locale still has to recognise their own in the switcher, which
+ * is the whole point of the control.
+ */
+export const LOCALE_LABEL: Record<Locale, string> = {
+  fr: "Français",
+  "ar-TN": "تونسي",
+};
+
+/** The locale to offer, given the one being read. Two locales, so: the other. */
+export function otherLocale(locale: Locale): Locale {
+  return locale === "fr" ? "ar-TN" : "fr";
+}
+
+/**
  * Remembers a reader's choice across visits, so landing on "/" a second time
  * does not fall back to guessing from Accept-Language.
  */

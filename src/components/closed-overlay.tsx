@@ -31,7 +31,12 @@ export function ClosedOverlay({ reopensTomorrow, openHour }: ClosedState) {
           <div className="text-lg font-semibold text-stone-ink">{title}</div>
           <div className="text-[14px] leading-normal text-stone-muted">{t("body")}</div>
         </div>
-        <div className="flex h-12 w-full items-stretch overflow-hidden rounded-[10px] border border-hair">
+        {/* LTR for the same reason as the order form's field: bidi would
+            reverse the digit groups and flip the "+". */}
+        <div
+          dir="ltr"
+          className="flex h-12 w-full items-stretch overflow-hidden rounded-[10px] border border-hair"
+        >
           <div className="flex flex-none items-center border-e border-hair bg-hair-2 px-3 text-[15px] text-stone-muted">
             +216
           </div>
