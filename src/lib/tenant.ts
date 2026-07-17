@@ -1,7 +1,7 @@
 // ============================================================
 // Tenant Data Access Layer — SERVER ONLY.
 //
-// Resolves a tenant's PUBLIC config (branding/zone/fee/hours/commerces) for
+// Resolves a tenant's PUBLIC config (branding/zone/fee/hours) for
 // the ordering page, and its SECRET Fleetbase context (decrypted company key)
 // for order creation. Uses the service-role client so it works for the
 // anonymous public page; never returns secrets to the client.
@@ -19,7 +19,7 @@ import {
   envFleetbaseContext,
   type FleetbaseContext,
 } from "@/lib/fleetbase";
-import type { Commerce, TenantPublicConfig } from "@/lib/config-types";
+import type { TenantPublicConfig } from "@/lib/config-types";
 import type { CreateOrderInput, CreatedOrder } from "@/lib/order-types";
 
 export function isSupabaseConfigured(): boolean {
@@ -61,24 +61,6 @@ async function fetchTenantRow(slug: string): Promise<TenantRow | null> {
     return null;
   }
   return (data as TenantRow) ?? null;
-}
-
-async function fetchCommerces(tenantId: string): Promise<Commerce[]> {
-  const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("commerces")
-    .select("id, name, addr, lat, lng")
-    .eq("tenant_id", tenantId)
-    .eq("active", true);
-
-  if (error || !data) return [];
-  return data.map((c) => ({
-    id: String(c.id),
-    name: c.name as string,
-    addr: c.addr as string,
-    lat: (c.lat as number | null) ?? undefined,
-    lng: (c.lng as number | null) ?? undefined,
-  }));
 }
 
 /** One entry in the landing page's directory of tenants. */
@@ -138,7 +120,6 @@ export async function getTenantPublicConfig(
     feeConfig: row.fee_config,
     hours: row.hours,
     phoneCountry: row.phone_country ?? "TN",
-    commerces: await fetchCommerces(row.id),
   };
 }
 

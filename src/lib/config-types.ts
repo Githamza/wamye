@@ -2,8 +2,7 @@
 // Tenant configuration DTOs — shared between server and browser.
 // No secrets here (the Fleetbase key lives server-side only): safe to
 // import from client components. A tenant's public config is what drives
-// the ordering page — branding, commerce list, delivery zone, fee model,
-// opening hours.
+// the ordering page — branding, delivery zone, fee model, opening hours.
 // ============================================================
 
 import type { LatLng } from "@/lib/order-types";
@@ -42,8 +41,9 @@ export type Branding = {
 };
 
 /**
- * A pickup business. Coordinates are only present for commerces picked from
- * Google Places; entries without them fall back to the straight-line fee.
+ * A pickup business, as chosen by the customer from Google Places. Coordinates
+ * are absent when resolving the place failed; those orders fall back to the
+ * straight-line fee.
  */
 export type Commerce = {
   id: string;
@@ -65,7 +65,6 @@ export type TenantPublicConfig = {
   hours: Hours;
   /** ISO country for phone validation/formatting, e.g. "TN". */
   phoneCountry: string;
-  commerces: Commerce[];
 };
 
 export type { LatLng };

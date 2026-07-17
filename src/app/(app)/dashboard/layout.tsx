@@ -12,7 +12,6 @@ const NAV = [
   { href: "/dashboard", label: "Commandes" },
   { href: "/dashboard/stats", label: "Statistiques", ownerOnly: true },
   { href: "/dashboard/clients", label: "Clients" },
-  { href: "/dashboard/commerces", label: "Commerces" },
   { href: "/dashboard/team", label: "Équipe", ownerOnly: true },
   { href: "/dashboard/settings", label: "Réglages", ownerOnly: true },
 ];

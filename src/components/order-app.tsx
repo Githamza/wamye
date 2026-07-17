@@ -424,7 +424,6 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
                 <CommerceCombo
                   selected={commerce}
                   onSelect={setCommerce}
-                  commerces={config.commerces}
                   zone={config.zone}
                   position={position}
                   regionCode={config.phoneCountry.toLowerCase()}

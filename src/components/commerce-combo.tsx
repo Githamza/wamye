@@ -6,15 +6,12 @@ import { Check, Loader2, Store, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import type { Commerce, Zone } from "@/lib/config-types";
 import type { LatLng } from "@/lib/order-types";
-import { searchCommerces } from "@/lib/default-config";
 import { proximity } from "@/lib/format";
 import { type PlaceSuggestion, isMapsEnabled, resolvePlace, searchPlaces } from "@/lib/maps";
 
 type Props = {
   selected: Commerce | null;
   onSelect: (c: Commerce | null) => void;
-  /** The tenant's commerce list, searched when Google Places is unavailable. */
-  commerces: Commerce[];
   /** Tenant delivery zone — bounds the Places search to deliverable shops. */
   zone: Zone;
   /** Customer position, when known — nearest shops surface first. */
@@ -27,15 +24,15 @@ type Props = {
   onDescribeChange: (v: string) => void;
 };
 
-/** A row in the dropdown, from Google Places or from the hardcoded fallback. */
+/** A row in the dropdown — always a Google Places suggestion. */
 type Row = {
   id: string;
   name: string;
   addr: string;
-  /** Distance from the customer, when known (Places rows with a position). */
+  /** Distance from the customer, when known (rows searched with a position). */
   distanceMeters?: number;
-  /** Present only for Places rows — resolving it yields the pickup coordinates. */
-  suggestion?: PlaceSuggestion;
+  /** Resolving it yields the pickup coordinates. */
+  suggestion: PlaceSuggestion;
 };
 
 const DEBOUNCE_MS = 250;
@@ -43,7 +40,6 @@ const DEBOUNCE_MS = 250;
 export function CommerceCombo({
   selected,
   onSelect,
-  commerces,
   zone,
   position,
   regionCode,
@@ -61,12 +57,12 @@ export function CommerceCombo({
   // Guards against a slow early request overwriting a newer one's results.
   const seq = useRef(0);
 
+  // Places is the only source of shops. Without a browser key there is nothing
+  // to search: the dropdown stays empty and "describe it" is the way through.
   const places = isMapsEnabled();
   const q = query.trim();
 
-  // Without a Maps key the hardcoded list is a pure function of the query, so
-  // it needs no state and no effect.
-  const rows: Row[] = places ? (q === "" ? [] : placeRows) : searchCommerces(commerces, q);
+  const rows: Row[] = q === "" ? [] : placeRows;
 
   useEffect(() => {
     if (!places || q === "") return;
@@ -91,24 +87,18 @@ export function CommerceCombo({
         );
       } catch (err) {
         console.error("[places] search failed:", err);
-        if (seq.current === id) setPlaceRows(searchCommerces(commerces, q)); // fall back to the local list
+        if (seq.current === id) setPlaceRows([]);
       } finally {
         if (seq.current === id) setSearching(false);
       }
     }, DEBOUNCE_MS);
 
     return () => window.clearTimeout(timer);
-  }, [q, places, commerces, zone, position, regionCode]);
+  }, [q, places, zone, position, regionCode]);
 
   async function pick(row: Row) {
     setOpen(false);
     setQuery("");
-
-    // Local fallback rows already carry everything we need.
-    if (!row.suggestion) {
-      onSelect({ id: row.id, name: row.name, addr: row.addr });
-      return;
-    }
 
     setResolving(true);
     try {
