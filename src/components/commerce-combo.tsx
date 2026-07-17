@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import type { Commerce, Zone } from "@/lib/config-types";
 import type { LatLng } from "@/lib/order-types";
 import { searchCommerces } from "@/lib/default-config";
+import { formatMeters } from "@/lib/format";
 import { type PlaceSuggestion, isMapsEnabled, resolvePlace, searchPlaces } from "@/lib/maps";
 
 type Props = {
@@ -37,11 +38,6 @@ type Row = {
 };
 
 const DEBOUNCE_MS = 250;
-
-/** "800 m" / "1,2 km" — short distance label, comma decimal (fr). */
-function formatDistance(m: number): string {
-  return m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1).replace(".", ",")} km`;
-}
 
 export function CommerceCombo({
   selected,
@@ -217,7 +213,7 @@ export function CommerceCombo({
                   <span className="text-[15px] font-medium text-stone-ink">{c.name}</span>
                   {c.distanceMeters != null && (
                     <span className="flex-none text-[12px] font-medium text-brand tabular-nums">
-                      {formatDistance(c.distanceMeters)}
+                      {formatMeters(c.distanceMeters)}
                     </span>
                   )}
                 </div>

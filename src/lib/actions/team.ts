@@ -17,7 +17,32 @@ import { createFleetbaseClient, FleetbaseError } from "@/lib/fleetbase";
  * a self-registered driver. The owner vouches; the platform decides.
  */
 
-export type SyncResult = { ok: boolean; message: string } | null;
+/**
+ * How a sync ended. A code rather than a sentence: a server action has no
+ * locale, so returning French text from here would pin the UI to French no
+ * matter what the reader asked for. The client owns the wording.
+ */
+export type SyncCode =
+  | "created"
+  | "already-synced"
+  | "member-not-found"
+  | "forbidden"
+  | "phone-missing"
+  | "no-fleetbase-key"
+  | "email-not-found"
+  | "fleetbase-error"
+  | "failed";
+
+export type SyncResult = {
+  ok: boolean;
+  code: SyncCode;
+  /**
+   * Upstream diagnostics, present only for "fleetbase-error". Not translated
+   * on purpose: it is another system's error text, shown verbatim so a failed
+   * sync can actually be debugged.
+   */
+  detail?: { status: number; message: string };
+} | null;
 
 /**
  * Add a sub-driver to the caller's team. Creates the login directly with an
@@ -153,18 +178,18 @@ export async function syncDriverToFleetbase(profileId: string): Promise<SyncResu
     .select("id, tenant_id, name, phone, fleetbase_driver_id")
     .eq("id", profileId)
     .maybeSingle();
-  if (!profile) return { ok: false, message: "Membre introuvable." };
+  if (!profile) return { ok: false, code: "member-not-found" };
 
   // A super-admin may sync anyone; an owner only their own team.
   if (!(await canManageTeam(profile.tenant_id as string))) {
-    return { ok: false, message: "Non autorisé." };
+    return { ok: false, code: "forbidden" };
   }
 
   if (profile.fleetbase_driver_id) {
-    return { ok: true, message: "Déjà synchronisé ✓" };
+    return { ok: true, code: "already-synced" };
   }
   if (!profile.phone) {
-    return { ok: false, message: "Numéro de téléphone manquant." };
+    return { ok: false, code: "phone-missing" };
   }
 
   const { data: tenant } = await supabase
@@ -182,16 +207,13 @@ export async function syncDriverToFleetbase(profileId: string): Promise<SyncResu
     ? await getTenantFleetbaseContext(tenant.slug as string)
     : null;
   if (!ctx) {
-    return {
-      ok: false,
-      message: "Aucune clé Fleetbase pour ce compte. Connectez Fleetbase d'abord.",
-    };
+    return { ok: false, code: "no-fleetbase-key" };
   }
 
   // Fleetbase requires an email; a driver's login email is the natural one.
   const { data: authUser } = await supabase.auth.admin.getUserById(profileId);
   const email = authUser?.user?.email;
-  if (!email) return { ok: false, message: "E-mail introuvable." };
+  if (!email) return { ok: false, code: "email-not-found" };
 
   try {
     const driver = await createFleetbaseClient(ctx).createDriver({
@@ -210,13 +232,15 @@ export async function syncDriverToFleetbase(profileId: string): Promise<SyncResu
 
     revalidatePath("/dashboard/team");
     revalidatePath(`/admin/tenants/${profile.tenant_id}`);
-    return { ok: true, message: "Livreur créé dans Fleetbase ✓" };
+    return { ok: true, code: "created" };
   } catch (err) {
-    const msg =
-      err instanceof FleetbaseError
-        ? `Échec (${err.status}) : ${err.message}`
-        : "Échec de la synchronisation.";
-    return { ok: false, message: msg };
+    return err instanceof FleetbaseError
+      ? {
+          ok: false,
+          code: "fleetbase-error",
+          detail: { status: err.status, message: err.message },
+        }
+      : { ok: false, code: "failed" };
   }
 }
 

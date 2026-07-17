@@ -36,7 +36,11 @@ export default async function PendingPage() {
       ? "Votre compte a été suspendu. Contactez l'administrateur pour le réactiver."
       : "Votre accès a été suspendu. Contactez votre responsable ou l'administrateur.";
   } else if (profile.isOwner) {
-    body = `Merci ${tenant?.name ?? ""} ! Votre inscription a bien été reçue. Un administrateur va valider votre compte et configurer la livraison. Vous pourrez alors accéder à votre tableau de bord.`;
+    // The tenant row is not always readable here (see the query note above), so
+    // the name has to be optional rather than interpolated blind — it used to
+    // render "Merci  !" with a hole in it.
+    const thanks = tenant?.name ? `Merci ${tenant.name} !` : "Merci !";
+    body = `${thanks} Votre inscription a bien été reçue. Un administrateur va valider votre compte et configurer la livraison. Vous pourrez alors accéder à votre tableau de bord.`;
   } else {
     body =
       "Votre responsable vous a ajouté à son équipe. Un administrateur doit encore valider votre compte avant que vous puissiez recevoir des livraisons.";

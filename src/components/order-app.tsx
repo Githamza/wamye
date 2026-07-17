@@ -11,7 +11,7 @@ import { ConfirmScreen } from "@/components/confirm-screen";
 import { ClosedOverlay } from "@/components/closed-overlay";
 import type { Commerce, TenantPublicConfig } from "@/lib/config-types";
 import { evaluatePosition, simulatedPosition } from "@/lib/geo";
-import { formatDT } from "@/lib/fees";
+import { formatDinar } from "@/lib/format";
 import { formatPhone, isValidPhone, normalizePhone } from "@/lib/phone";
 import { closedLabel, isOpenNow, openLabel } from "@/lib/hours";
 import {
@@ -23,6 +23,23 @@ import {
 import type { Quote } from "@/lib/order-types";
 
 type Screen = "order" | "confirm";
+
+/** Why the order cannot be submitted yet, if it cannot. */
+type BlockedReason = "outzone" | "order" | "commerce" | "position" | "phone";
+
+/**
+ * A whole sentence per cause, rather than "Il manque : " glued to a fragment.
+ * Arabic cannot take the fragment form — word order and agreement change per
+ * cause — and the glue read as nonsense for `outzone` regardless of language:
+ * an address outside the zone is not a field the customer forgot to fill.
+ */
+const BLOCKED_MESSAGE: Record<BlockedReason, string> = {
+  outzone: "Adresse hors zone de livraison",
+  order: "Il manque : votre commande",
+  commerce: "Il manque : un commerce",
+  position: "Il manque : votre position",
+  phone: "Il manque : votre numéro",
+};
 
 // Minimal typing for the PWA install prompt event.
 type InstallPromptEvent = Event & {
@@ -143,20 +160,20 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
   const hasCommerce = commerceLabel !== "";
   const phoneValid = isValidPhone(phone);
 
-  const missing = useMemo<string | null>(() => {
-    if (deliveryStatus === "outzone") return "adresse hors zone de livraison";
-    if (order.trim() === "") return "votre commande";
-    if (!hasCommerce) return "un commerce";
-    if (deliveryStatus !== "ready") return "votre position";
-    if (!phoneValid) return "votre numéro";
+  const blocked = useMemo<BlockedReason | null>(() => {
+    if (deliveryStatus === "outzone") return "outzone";
+    if (order.trim() === "") return "order";
+    if (!hasCommerce) return "commerce";
+    if (deliveryStatus !== "ready") return "position";
+    if (!phoneValid) return "phone";
     return null;
   }, [deliveryStatus, order, hasCommerce, phoneValid]);
 
-  const canSubmit = missing === null;
+  const canSubmit = blocked === null;
   const ctaLabel = submitting
     ? "Envoi…"
     : canSubmit && fee !== null
-      ? `Commander · Livraison ${formatDT(fee)} DT`
+      ? `Commander · Livraison ${formatDinar(fee)}`
       : "Commander";
 
   // ---- handlers ----
@@ -201,14 +218,22 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
     }
   }
 
+  /**
+   * Every way a submit can fail offers the same reassurance and the same way
+   * back in; only the headline differs when the server supplies its own.
+   */
+  function toastSubmitFailed(serverMessage?: string) {
+    toast.error(serverMessage ?? "Échec de l'envoi — réessayez", {
+      description: "Votre commande est conservée",
+      action: { label: "Réessayer", onClick: () => submitOrder() },
+    });
+  }
+
   async function submitOrder() {
     if (submitting) return;
 
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      toast.error("Échec de l'envoi — réessayez", {
-        description: "Votre commande est conservée",
-        action: { label: "Réessayer", onClick: () => submitOrder() },
-      });
+      toastSubmitFailed();
       return;
     }
 
@@ -238,10 +263,7 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
 
       if (!res.ok) {
         const data = (await res.json().catch(() => null)) as { error?: string } | null;
-        toast.error(data?.error ?? "Échec de l'envoi — réessayez", {
-          description: "Votre commande est conservée",
-          action: { label: "Réessayer", onClick: () => submitOrder() },
-        });
+        toastSubmitFailed(data?.error);
         return;
       }
 
@@ -261,10 +283,7 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
       setScreen("confirm");
       bodyRef.current?.scrollTo({ top: 0 });
     } catch {
-      toast.error("Échec de l'envoi — réessayez", {
-        description: "Votre commande est conservée",
-        action: { label: "Réessayer", onClick: () => submitOrder() },
-      });
+      toastSubmitFailed();
     } finally {
       setSubmitting(false);
     }
@@ -316,13 +335,11 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
                   isOpen ? "animate-pulse-dot bg-success" : "bg-stone-faint"
                 }`}
               />
-              {isOpen
-                ? [openLabel(config.hours), config.branding.areaLabel]
-                    .filter(Boolean)
-                    .join(" · ")
-                : [config.branding.areaLabel ? "Fermé" : null, config.branding.areaLabel]
-                    .filter(Boolean)
-                    .join(" · ") || "Fermé"}
+              {/* Both halves are standalone labels, so the join survives
+                  translation; only the two labels themselves need keys. */}
+              {[isOpen ? openLabel(config.hours) : "Fermé", config.branding.areaLabel]
+                .filter(Boolean)
+                .join(" · ")}
             </div>
           </div>
         </header>
@@ -415,6 +432,7 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
                   repere={repere}
                   onRepere={setRepere}
                   onUseLocation={handleUseLocation}
+                  areaLabel={config.branding.areaLabel}
                 />
               </section>
 
@@ -462,9 +480,9 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
 
             {/* CTA footer */}
             <footer className="flex flex-none flex-col gap-2 bg-white px-4 pb-[calc(24px+env(safe-area-inset-bottom,0px))] pt-3 shadow-[0_-4px_16px_rgba(28,25,23,0.07)]">
-              {isOpen && missing && (
+              {isOpen && blocked && (
                 <div className="text-center text-[13px] text-stone-muted">
-                  Il manque : {missing}
+                  {BLOCKED_MESSAGE[blocked]}
                 </div>
               )}
               <button

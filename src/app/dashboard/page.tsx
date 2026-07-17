@@ -1,6 +1,7 @@
 import { requireTenant } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
-import { formatDT } from "@/lib/fees";
+import { formatDinar } from "@/lib/format";
+import { stageLabel } from "@/lib/labels";
 import { ShopLink } from "@/components/shop-link";
 
 export const dynamic = "force-dynamic";
@@ -15,13 +16,6 @@ type OrderRow = {
   phone: string | null;
   fee: number | null;
   created_at: string;
-};
-
-const STAGE_LABEL: Record<string, string> = {
-  searching: "Recherche livreur",
-  enroute: "En route",
-  delivered: "Livré",
-  canceled: "Annulé",
 };
 
 export default async function OrdersPage() {
@@ -65,10 +59,10 @@ export default async function OrdersPage() {
               </div>
               <div className="flex flex-none flex-col items-end gap-0.5">
                 <span className="rounded-full bg-hair-2 px-2.5 py-1 text-[12px] font-medium text-stone-muted2">
-                  {o.stage ? STAGE_LABEL[o.stage] ?? o.stage : o.status ?? "—"}
+                  {o.stage ? stageLabel(o.stage) : o.status ?? "—"}
                 </span>
                 {o.fee != null && (
-                  <span className="text-[12px] text-stone-muted">{formatDT(o.fee)} DT</span>
+                  <span className="text-[12px] text-stone-muted">{formatDinar(o.fee)}</span>
                 )}
               </div>
             </li>

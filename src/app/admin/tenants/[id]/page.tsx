@@ -8,6 +8,7 @@ import {
   updateTenantFleetbase,
 } from "@/lib/actions/tenants";
 import { approveSubDriver, setMemberStatus } from "@/lib/actions/team";
+import { statusLabel } from "@/lib/labels";
 import { TestConnectionButton } from "@/components/test-connection-button";
 import { SyncDriverButton } from "@/components/sync-driver-button";
 
@@ -24,12 +25,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </label>
   );
 }
-
-const STATUS_LABEL: Record<string, string> = {
-  pending: "En attente",
-  active: "Actif",
-  suspended: "Suspendu",
-};
 
 type TeamRow = {
   id: string;
@@ -89,7 +84,7 @@ export default async function TenantDetailPage(props: {
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold text-stone-ink">{t.name}</h1>
           <span className="rounded-full bg-hair px-2 py-0.5 text-[11px] text-stone-muted2">
-            {STATUS_LABEL[t.status] ?? t.status}
+            {statusLabel(t.status)}
           </span>
         </div>
         <Link href={`/t/${t.slug}`} className="text-[13px] text-brand underline underline-offset-2">
@@ -157,7 +152,7 @@ export default async function TenantDetailPage(props: {
                   </div>
                 </div>
                 <span className="rounded-full bg-hair px-2 py-0.5 text-[11px] text-stone-muted2">
-                  {STATUS_LABEL[m.status] ?? m.status}
+                  {statusLabel(m.status)}
                 </span>
               </div>
 

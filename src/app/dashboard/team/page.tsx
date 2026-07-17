@@ -6,6 +6,7 @@ import {
   toggleSubDriverActive,
   updateOwnPhone,
 } from "@/lib/actions/team";
+import { statusLabel } from "@/lib/labels";
 import { SyncDriverButton } from "@/components/sync-driver-button";
 
 export const dynamic = "force-dynamic";
@@ -20,12 +21,6 @@ type MemberRow = {
 
 const input =
   "h-11 w-full rounded-[10px] border border-hair px-3.5 text-[15px] outline-none focus:border-brand";
-
-const STATUS_LABEL: Record<string, string> = {
-  pending: "En attente",
-  active: "Actif",
-  suspended: "Suspendu",
-};
 
 const ERROR_LABEL: Record<string, string> = {
   missing: "Nom, e-mail, téléphone et un mot de passe d'au moins 8 caractères sont requis.",
@@ -160,7 +155,7 @@ export default async function TeamPage(props: {
                 <div className="text-[13px] text-stone-muted">{m.phone}</div>
               </div>
               <span className="rounded-full bg-hair px-2 py-0.5 text-[11px] text-stone-muted2">
-                {STATUS_LABEL[m.status] ?? m.status}
+                {statusLabel(m.status)}
               </span>
             </div>
 

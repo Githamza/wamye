@@ -1,6 +1,7 @@
 import { requireOwner } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
-import { formatDT } from "@/lib/fees";
+import { formatDinar, formatKm } from "@/lib/format";
+import { stageLabel } from "@/lib/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -10,13 +11,6 @@ type Row = {
   stage: string | null;
   status: string | null;
   created_at: string;
-};
-
-const STAGE_LABEL: Record<string, string> = {
-  searching: "Recherche livreur",
-  enroute: "En route",
-  delivered: "Livré",
-  canceled: "Annulé",
 };
 
 const WINDOW_DAYS = 90;
@@ -77,8 +71,8 @@ export default async function StatsPage() {
         <Stat label="Commandes (total)" value={String(total)} />
         <Stat label="7 derniers jours" value={String(last7)} />
         <Stat label="30 derniers jours" value={String(last30)} />
-        <Stat label="Revenus (frais)" value={`${formatDT(revenue)} DT`} />
-        <Stat label="Distance moyenne" value={`${avgDistance.toFixed(1)} km`} />
+        <Stat label="Revenus (frais)" value={formatDinar(revenue)} />
+        <Stat label="Distance moyenne" value={formatKm(avgDistance)} />
       </div>
 
       <div className="flex flex-col gap-3 rounded-[14px] border border-hair bg-white p-5">
@@ -90,7 +84,7 @@ export default async function StatsPage() {
             {breakdown.map(([stage, count]) => (
               <li key={stage} className="flex items-center gap-3">
                 <span className="w-32 flex-none text-[13px] text-stone-muted2">
-                  {STAGE_LABEL[stage] ?? stage}
+                  {stageLabel(stage)}
                 </span>
                 <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-hair-2">
                   <div

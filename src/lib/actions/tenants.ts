@@ -185,7 +185,16 @@ export async function updateTenantFleetbase(formData: FormData) {
   redirect(`/admin/tenants/${id}?saved=1`);
 }
 
-export type TestResult = { ok: boolean; message: string } | null;
+/** How a connection test ended. A code, not a sentence — see SyncCode in
+ *  @/lib/actions/team for why the server does not word these. */
+export type TestCode = "connected" | "no-key" | "fleetbase-error" | "failed";
+
+export type TestResult = {
+  ok: boolean;
+  code: TestCode;
+  /** Upstream diagnostics for "fleetbase-error"; shown verbatim, never translated. */
+  detail?: { status: number; message: string };
+} | null;
 
 /** "Test connection": validate a tenant's stored Fleetbase credentials. */
 export async function testTenantConnection(tenantId: string): Promise<TestResult> {
@@ -201,16 +210,18 @@ export async function testTenantConnection(tenantId: string): Promise<TestResult
     ? (await getTenantFleetbaseContext(tenant.slug as string)) ?? envFleetbaseContext()
     : envFleetbaseContext();
 
-  if (!ctx) return { ok: false, message: "Aucune clé Fleetbase configurée." };
+  if (!ctx) return { ok: false, code: "no-key" };
 
   try {
     await createFleetbaseClient(ctx).ping();
-    return { ok: true, message: "Connexion réussie ✓" };
+    return { ok: true, code: "connected" };
   } catch (err) {
-    const msg =
-      err instanceof FleetbaseError
-        ? `Échec (${err.status}) : ${err.message}`
-        : "Échec de la connexion.";
-    return { ok: false, message: msg };
+    return err instanceof FleetbaseError
+      ? {
+          ok: false,
+          code: "fleetbase-error",
+          detail: { status: err.status, message: err.message },
+        }
+      : { ok: false, code: "failed" };
   }
 }

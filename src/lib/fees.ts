@@ -14,8 +14,3 @@ export function roundToHalf(n: number): number {
 export function feeForKm(distanceKm: number, fee: FeeConfig): number {
   return Math.max(fee.minFee, roundToHalf(fee.baseFee + fee.feePerKm * distanceKm));
 }
-
-/** Tunisian-style number formatting: comma decimal separator. */
-export function formatDT(n: number): string {
-  return n.toFixed(1).replace(".", ",");
-}

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { MessageCircle, X } from "lucide-react";
-import { formatDT } from "@/lib/fees";
+import { formatDinar } from "@/lib/format";
 import type { OrderStage, OrderStatus } from "@/lib/order-types";
 
 type Props = {
@@ -211,7 +211,7 @@ export function ConfirmScreen({
           <div className="text-[14px] text-stone-muted">{commerceName}</div>
           {fee !== null && (
             <div className="text-[14px] text-stone-muted">
-              Frais : <span className="font-semibold text-amber">{formatDT(fee)} DT</span>
+              Frais : <span className="font-semibold text-amber">{formatDinar(fee)}</span>
             </div>
           )}
         </div>

@@ -5,6 +5,29 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 
 /**
+ * Supabase words its errors in English. Mapping the codes this form can
+ * actually provoke keeps the page in one language; `error.message` used to be
+ * rendered raw, so a French UI would answer with "New password should be
+ * different from the old password."
+ */
+const AUTH_ERROR: Record<string, string> = {
+  weak_password: "Mot de passe trop faible — choisissez-en un plus long ou plus complexe.",
+  same_password: "Ce mot de passe est identique à l'ancien.",
+  session_not_found: "Lien expiré. Demandez un nouveau lien.",
+  session_expired: "Lien expiré. Demandez un nouveau lien.",
+  reauthentication_needed: "Reconnectez-vous avant de changer votre mot de passe.",
+  over_request_rate_limit: "Trop de tentatives. Réessayez dans quelques minutes.",
+  validation_failed: "Mot de passe invalide.",
+};
+
+const AUTH_ERROR_FALLBACK = "Impossible de mettre à jour le mot de passe. Réessayez.";
+
+/** `code` is undefined when the request failed before any response (offline). */
+function authErrorMessage(code: string | undefined): string {
+  return (code && AUTH_ERROR[code]) || AUTH_ERROR_FALLBACK;
+}
+
+/**
  * Landing page for password-recovery links. The Supabase browser client
  * auto-consumes the recovery token from the URL (detectSessionInUrl), giving a
  * short-lived session; the user then sets a new password.
@@ -43,7 +66,7 @@ export default function UpdatePasswordPage() {
     const supabase = createClient();
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
-      setError(error.message);
+      setError(authErrorMessage(error.code));
       setBusy(false);
       return;
     }

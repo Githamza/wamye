@@ -3,7 +3,7 @@
 import { Crosshair, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { MiniMap } from "@/components/mini-map";
-import { formatDT } from "@/lib/fees";
+import { formatDinar, formatKm } from "@/lib/format";
 
 export type DeliveryStatus = "idle" | "locating" | "ready" | "outzone";
 
@@ -22,6 +22,11 @@ type Props = {
   repere: string;
   onRepere: (v: string) => void;
   onUseLocation: () => void;
+  /**
+   * The tenant's delivery area, e.g. "Djerba & Midoun". Named in the
+   * out-of-zone message, which used to say "Djerba" for every tenant.
+   */
+  areaLabel?: string;
 };
 
 function FeeSkeleton() {
@@ -49,6 +54,7 @@ export function DeliveryBlock({
   repere,
   onRepere,
   onUseLocation,
+  areaLabel,
 }: Props) {
   const located = status === "ready" || status === "outzone";
   const onRoad = quoteSource === "road";
@@ -100,13 +106,13 @@ export function DeliveryBlock({
               {quoting && <Loader2 className="size-3.5 animate-spin" />}
               {/* Straight-line distances get a "~"; road distances are exact. */}
               {onRoad
-                ? `${formatDT(distanceKm ?? 0)} km par la route`
-                : `~${formatDT(distanceKm ?? 0)} km`}
+                ? `${formatKm(distanceKm ?? 0)} par la route`
+                : `~${formatKm(distanceKm ?? 0)}`}
               {onRoad && durationMin !== null && ` · ${durationMin} min`}
             </div>
           </div>
           <div className="text-[26px] font-extrabold tracking-[-0.01em] text-amber">
-            {formatDT(fee)} DT
+            {formatDinar(fee)}
           </div>
           <div className="text-xs text-stone-muted">
             {quoting
@@ -122,7 +128,9 @@ export function DeliveryBlock({
         <div className="anim-fade-up flex flex-col gap-1 rounded-xl border border-danger-border bg-danger-bg px-4 py-3.5">
           <div className="text-[15px] font-semibold text-danger">Hors zone de livraison</div>
           <div className="text-[14px] leading-normal text-danger-ink">
-            Désolé, cette adresse est hors de notre zone (Djerba uniquement)
+            {areaLabel
+              ? `Désolé, cette adresse est hors de notre zone (${areaLabel} uniquement)`
+              : "Désolé, cette adresse est hors de notre zone de livraison"}
           </div>
         </div>
       )}

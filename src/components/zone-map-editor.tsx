@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { formatKm } from "@/lib/format";
 import {
   DJERBA_CENTER,
   MAP_ID,
@@ -164,7 +165,7 @@ export function ZoneMapEditor({ initialLat, initialLng, initialRadiusKm }: Props
               className="flex-1 accent-brand"
             />
             <span className="w-16 text-right text-[14px] font-medium text-stone-ink tabular-nums">
-              {radiusKm} km
+              {formatKm(radiusKm)}
             </span>
           </div>
           <p className="text-[12px] text-stone-muted">

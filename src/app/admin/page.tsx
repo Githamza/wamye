@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { statusLabel } from "@/lib/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +14,16 @@ type TenantRow = {
   created_at: string;
 };
 
-const STATUS: Record<string, { label: string; cls: string }> = {
-  pending: { label: "En attente", cls: "bg-amber-100 text-amber-800" },
-  active: { label: "Actif", cls: "bg-emerald-100 text-emerald-800" },
-  suspended: { label: "Suspendu", cls: "bg-hair text-stone-muted2" },
+/** Badge colours only — the label itself comes from @/lib/labels, which the
+ *  fr/ar-TN split translates and these class names must not follow. */
+const STATUS_CLASS: Record<string, string> = {
+  pending: "bg-amber-100 text-amber-800",
+  active: "bg-emerald-100 text-emerald-800",
+  suspended: "bg-hair text-stone-muted2",
 };
+
+/** An unmodelled status still renders, in neutral grey. */
+const STATUS_CLASS_FALLBACK = "bg-hair text-stone-muted2";
 
 export default async function AdminHomePage(props: {
   searchParams: Promise<{ created?: string }>;
@@ -55,7 +61,6 @@ export default async function AdminHomePage(props: {
 
       <ul className="flex flex-col gap-2">
         {tenants.map((t) => {
-          const s = STATUS[t.status] ?? { label: t.status, cls: "bg-hair text-stone-muted2" };
           return (
             <li key={t.id}>
               <Link
@@ -65,7 +70,13 @@ export default async function AdminHomePage(props: {
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <div className="flex items-center gap-2">
                     <span className="text-[14px] font-medium text-stone-ink">{t.name}</span>
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] ${s.cls}`}>{s.label}</span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[11px] ${
+                        STATUS_CLASS[t.status] ?? STATUS_CLASS_FALLBACK
+                      }`}
+                    >
+                      {statusLabel(t.status)}
+                    </span>
                   </div>
                   <div className="flex items-center gap-3 text-[12px] text-stone-muted">
                     <span>/t/{t.slug}</span>
