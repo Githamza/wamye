@@ -11,6 +11,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { DEFAULT_LOCALE, hasLocale, type Locale } from "@/i18n/locales";
 
 export type UserRole = "super_admin" | "tenant_admin";
 
@@ -27,6 +28,12 @@ export type Profile = {
   /** null → this is the tenant's owner; set → a sub-driver on their team. */
   parentProfileId: string | null;
   isOwner: boolean;
+  /**
+   * The language this person reads the dashboard in. Unlike the public pages,
+   * which carry their locale in the URL because a shop link gets shared, a
+   * dashboard is nobody's shared link — the preference belongs to the person.
+   */
+  locale: Locale;
 };
 
 /** The authenticated Supabase user, or null. Verified against the auth server. */
@@ -51,12 +58,13 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
-    .select("id, tenant_id, role, name, status, parent_profile_id")
+    .select("id, tenant_id, role, name, status, parent_profile_id, locale")
     .eq("id", user.id)
     .maybeSingle();
 
   if (!data) return null;
   const parentProfileId = (data.parent_profile_id as string | null) ?? null;
+  const locale = data.locale as string | null;
   return {
     id: data.id as string,
     tenantId: (data.tenant_id as string | null) ?? null,
@@ -65,6 +73,9 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
     status: data.status as ProfileStatus,
     parentProfileId,
     isOwner: parentProfileId === null,
+    // A check constraint keeps the column to LOCALES, but this narrows a
+    // `string` from the wire rather than asserting one.
+    locale: hasLocale(locale) ? locale : DEFAULT_LOCALE,
   };
 });
 

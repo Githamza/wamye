@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireTenant } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
+import { DashboardLocaleSwitcher } from "@/components/dashboard-locale-switcher";
 
 export const dynamic = "force-dynamic";
 
@@ -50,10 +51,11 @@ export default async function DashboardLayout({
             {tenant?.name ?? "Tableau de bord"}
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <span className="hidden text-[13px] text-stone-muted sm:inline">
             {profile.name ?? profile.role}
           </span>
+          <DashboardLocaleSwitcher current={profile.locale} />
           <form action="/auth/signout" method="post">
             <button
               type="submit"
