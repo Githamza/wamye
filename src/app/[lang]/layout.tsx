@@ -14,6 +14,7 @@ import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { NextIntlClientProvider } from "next-intl";
 import { Toaster } from "@/components/ui/sonner";
+import { Clarity } from "@/components/clarity";
 import { fontVariables } from "@/app/fonts";
 import { LOCALES, dirOf, hasLocale } from "@/i18n/locales";
 import "../globals.css";
@@ -69,6 +70,7 @@ export default async function LocalisedRootLayout({
       <body className="min-h-full bg-page">
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
         <Toaster position="bottom-center" />
+        <Clarity />
       </body>
     </html>
   );
