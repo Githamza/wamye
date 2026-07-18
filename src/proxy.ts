@@ -32,12 +32,27 @@ export async function proxy(request: NextRequest) {
 
 // ---- 1. public: locale routing ----
 
+/** A year: long enough that a reader sets this once and forgets it. */
+const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+
 function redirectToLocale(request: NextRequest, pathname: string) {
   const locale = preferredLocale(request);
   const url = request.nextUrl.clone();
   // "/" becomes "/fr", not "/fr/"; "/t/x" becomes "/fr/t/x".
   url.pathname = pathname === "/" ? `/${locale}` : `/${locale}${pathname}`;
-  return NextResponse.redirect(url);
+  const response = NextResponse.redirect(url);
+  // Persist the resolved locale. The [lang] surface reads its language from the
+  // URL, but the (app) group (/login, /signup) reads it from this cookie — so
+  // without writing it here, a visitor sent to /ar-TN by Accept-Language would
+  // arrive at /login with no cookie and be handed a French form. Idempotent:
+  // preferredLocale already prefers the cookie, so this only fills the gap left
+  // by the implicit (Accept-Language) guess.
+  response.cookies.set(LOCALE_COOKIE, locale, {
+    path: "/",
+    maxAge: LOCALE_COOKIE_MAX_AGE,
+    sameSite: "lax",
+  });
+  return response;
 }
 
 function preferredLocale(request: NextRequest): Locale {

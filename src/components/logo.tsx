@@ -21,7 +21,7 @@ export function Logo({
     <img
       src={mark ? "/wamyemark.svg" : "/wamyelogo.svg"}
       alt="Wamye"
-      className={className ?? (mark ? "h-6 w-6" : "h-8 w-auto")}
+      className={className ?? (mark ? "h-6 w-6" : "h-11 w-auto sm:h-12")}
     />
   );
 }

@@ -15,6 +15,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { NextIntlClientProvider } from "next-intl";
 import { Toaster } from "@/components/ui/sonner";
 import { Clarity } from "@/components/clarity";
+import { LocaleCookieSync } from "@/components/locale-cookie-sync";
 import { fontVariables } from "@/app/fonts";
 import { LOCALES, dirOf, hasLocale } from "@/i18n/locales";
 import "../globals.css";
@@ -68,6 +69,7 @@ export default async function LocalisedRootLayout({
       className={`${fontVariables} h-full antialiased`}
     >
       <body className="min-h-full bg-page">
+        <LocaleCookieSync locale={lang} />
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
         <Toaster position="bottom-center" />
         <Clarity />
