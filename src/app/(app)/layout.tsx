@@ -9,41 +9,14 @@
 // ============================================================
 
 import type { Metadata, Viewport } from "next";
-import { cookies } from "next/headers";
 import { NextIntlClientProvider } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { Toaster } from "@/components/ui/sonner";
 import { Clarity } from "@/components/clarity";
 import { fontVariables } from "@/app/fonts";
-import { getProfile } from "@/lib/auth/dal";
-import {
-  DEFAULT_LOCALE,
-  LOCALE_COOKIE,
-  dirOf,
-  hasLocale,
-  type Locale,
-} from "@/i18n/locales";
+import { dirOf } from "@/i18n/locales";
+import { viewerLocale } from "@/i18n/viewer-locale";
 import "../globals.css";
-
-/**
- * The language to render in, in order of authority:
- *
- *   1. the signed-in driver's saved preference;
- *   2. the cookie, for /login and /signup — there is no profile to read yet,
- *      and someone who just browsed a shop in derja should not be handed a
- *      French sign-in form;
- *   3. French.
- *
- * getProfile is memoized per render, so pages that already call require* pay
- * for this once.
- */
-async function viewerLocale(): Promise<Locale> {
-  const profile = await getProfile();
-  if (profile) return profile.locale;
-
-  const chosen = (await cookies()).get(LOCALE_COOKIE)?.value;
-  return hasLocale(chosen) ? chosen : DEFAULT_LOCALE;
-}
 
 // Platform-level defaults. Each tenant's ordering page overrides the title
 // with its own branding via generateMetadata (see app/[lang]/t/[slug]/page.tsx).

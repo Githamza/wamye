@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { LoginForm } from "@/components/login-form";
 import { DriverValue } from "@/components/driver-value";
 import { DashboardLocaleSwitcher } from "@/components/dashboard-locale-switcher";
 import { Logo } from "@/components/logo";
 import { getSessionUser } from "@/lib/auth/dal";
-import type { Locale } from "@/i18n/locales";
+import { viewerLocale } from "@/i18n/viewer-locale";
 
 export const dynamic = "force-dynamic";
 
@@ -24,10 +24,12 @@ export default async function LoginPage({
   // Already signed in → skip the form.
   if (await getSessionUser()) redirect(next);
 
-  // The (app) layout resolves the locale from the cookie (no profile yet) and
-  // sets it as the request locale, so getTranslations/getLocale read it here.
+  // next-intl resolves getTranslations from the request locale, and that must
+  // be set in this page's own segment — the layout's call does not reach here,
+  // so without this the form falls back to French even for an ar-TN reader.
+  const locale = await viewerLocale();
+  setRequestLocale(locale);
   const t = await getTranslations("Login");
-  const locale = (await getLocale()) as Locale;
 
   return (
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-4xl flex-col justify-center gap-10 p-6 lg:flex-row lg:items-center lg:gap-16">
