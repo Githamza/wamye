@@ -4,6 +4,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { LoginForm } from "@/components/login-form";
 import { DriverValue } from "@/components/driver-value";
 import { DashboardLocaleSwitcher } from "@/components/dashboard-locale-switcher";
+import { Logo } from "@/components/logo";
 import { getSessionUser } from "@/lib/auth/dal";
 import type { Locale } from "@/i18n/locales";
 
@@ -33,11 +34,8 @@ export default async function LoginPage({
       {/* Value panel — why a driver signs up / signs in. */}
       <section className="flex flex-1 flex-col gap-4">
         <div className="flex items-center justify-between gap-3">
-          <Link href="/" className="flex w-fit items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-brand-fill text-[18px]">
-              🛵
-            </span>
-            <span className="text-[17px] font-bold tracking-tight text-stone-ink">Wamye</span>
+          <Link href="/" className="flex w-fit items-center">
+            <Logo />
           </Link>
           {/* No locale in these URLs, so switching is a cookie write (a Server
               Action), not a link — same control the dashboard uses. */}

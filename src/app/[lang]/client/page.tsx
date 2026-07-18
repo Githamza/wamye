@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { Logo } from "@/components/logo";
 import { isOpenNowIn, TUNISIA_TZ } from "@/lib/hours";
 import { listPublicTenants } from "@/lib/tenant";
 import { hasLocale } from "@/i18n/locales";
@@ -33,13 +34,8 @@ export default async function ClientDirectoryPage({
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-5 py-6 sm:py-10">
       <header className="flex items-center justify-between">
         {/* Logo returns to the role-choice screen. */}
-        <Link href={`/${lang}`} className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-brand-fill text-[18px]">
-            🛵
-          </span>
-          <span className="text-[17px] font-bold tracking-tight text-stone-ink">
-            Wamye
-          </span>
+        <Link href={`/${lang}`} className="flex w-fit items-center">
+          <Logo />
         </Link>
         <div className="flex items-center gap-2">
           <LocaleSwitcher />

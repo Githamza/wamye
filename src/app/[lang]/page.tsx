@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { Logo } from "@/components/logo";
 import { hasLocale } from "@/i18n/locales";
 
 // Title and description come from the [lang] layout's generateMetadata.
@@ -16,14 +17,7 @@ export default async function LandingPage({ params }: PageProps<"/[lang]">) {
   return (
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-3xl flex-col px-5 py-6 sm:py-10">
       <header className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-brand-fill text-[18px]">
-            🛵
-          </span>
-          <span className="text-[17px] font-bold tracking-tight text-stone-ink">
-            Wamye
-          </span>
-        </div>
+        <Logo />
         <LocaleSwitcher />
       </header>
 

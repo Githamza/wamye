@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { requireTenant } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardLocaleSwitcher } from "@/components/dashboard-locale-switcher";
+import { Logo } from "@/components/logo";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +46,7 @@ export default async function DashboardLayout({
     <div className="min-h-[100dvh] bg-app">
       <header className="flex items-center justify-between border-b border-hair bg-white px-5 py-3">
         <div className="flex items-center gap-3">
-          <span className="text-lg">🛵</span>
+          <Logo variant="mark" />
           <div className="text-[15px] font-semibold text-stone-ink">
             {tenant?.name ?? "Tableau de bord"}
           </div>
