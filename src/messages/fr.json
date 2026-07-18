@@ -23,6 +23,17 @@
     "ctaAction": "Créer un compte",
     "footer": "Wamye — livraison en Tunisie."
   },
+  "RoleChoice": {
+    "title": "Bienvenue sur Wamye",
+    "subtitle": "Que souhaitez-vous faire ?",
+    "clientTitle": "Je suis client",
+    "clientBody": "Commandez repas, courses ou pharmacie près de chez vous — payez à la livraison.",
+    "clientAction": "Commander une livraison",
+    "driverTitle": "Je suis livreur",
+    "driverBody": "Recevez des commandes et développez votre activité de livraison sur Wamye.",
+    "driverAction": "Accéder à l'espace livreur",
+    "footer": "Wamye — livraison en Tunisie."
+  },
   "Status": {
     "open": "Ouvert",
     "closed": "Fermé"

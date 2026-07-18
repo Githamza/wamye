@@ -50,7 +50,7 @@ export function LoginForm({ next }: { next: string }) {
   }
 
   return (
-    <div className="mx-auto flex min-h-[100dvh] w-full max-w-sm flex-col justify-center gap-6 p-6">
+    <div className="flex w-full flex-col gap-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold text-stone-ink">Espace livreur</h1>
         <p className="text-[14px] text-stone-muted">Connectez-vous à votre tableau de bord.</p>

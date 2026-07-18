@@ -23,6 +23,17 @@
     "ctaAction": "أعمل حساب",
     "footer": "Wamye — التوصيل في تونس."
   },
+  "RoleChoice": {
+    "title": "مرحبا بيك في Wamye",
+    "subtitle": "شنوّة تحب تعمل؟",
+    "clientTitle": "أنا حريف",
+    "clientBody": "اطلب ماكلة، قضيان ولا صيدلية قريب منّك — وتخلّص كي يوصلك.",
+    "clientAction": "اطلب توصيلة",
+    "driverTitle": "أنا موصّل",
+    "driverBody": "اقبل الطلبات وكبّر نشاطك في التوصيل مع Wamye.",
+    "driverAction": "ادخل لفضاء الموصّل",
+    "footer": "Wamye — التوصيل في تونس."
+  },
   "Status": {
     "open": "محلول",
     "closed": "مسكّر"
