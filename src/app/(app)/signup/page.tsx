@@ -12,6 +12,13 @@ const ERRORS: Record<string, string> = {
   insert: "Échec de la création — réessayez.",
 };
 
+const BENEFITS = [
+  { icon: "📦", text: "Recevez vos commandes directement sur votre tableau de bord." },
+  { icon: "🔗", text: "Votre page de commande à partager avec vos clients." },
+  { icon: "🗺️", text: "Couvrez la zone de votre choix et fixez vos frais de livraison." },
+  { icon: "💵", text: "Paiement à la livraison — le prix est confirmé avant chaque achat." },
+] as const;
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1">
@@ -31,9 +38,21 @@ export default async function SignupPage(props: {
       <div className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold text-stone-ink">Créer un compte livreur</h1>
         <p className="text-[14px] text-stone-muted">
-          Inscrivez votre service de livraison. Votre compte sera activé après validation.
+          Inscrivez votre service de livraison et recevez vos commandes en ligne. Votre compte
+          sera activé après validation.
         </p>
       </div>
+
+      <ul className="flex flex-col gap-2.5 rounded-[12px] border border-brand-border bg-brand-bg p-4">
+        {BENEFITS.map((benefit) => (
+          <li key={benefit.text} className="flex items-start gap-2.5">
+            <span className="text-[15px] leading-tight" aria-hidden>
+              {benefit.icon}
+            </span>
+            <span className="text-[13px] leading-relaxed text-brand-ink/80">{benefit.text}</span>
+          </li>
+        ))}
+      </ul>
 
       {error && (
         <div className="rounded-[10px] border border-danger-border bg-danger-bg px-4 py-2.5 text-[13px] text-danger-ink">
