@@ -23,6 +23,29 @@
     "ctaAction": "Créer un compte",
     "footer": "Wamye — livraison en Tunisie."
   },
+  "Login": {
+    "valueTitle": "Développez votre activité de livraison.",
+    "valueBody": "Wamye connecte votre service aux clients de votre région. Connectez-vous pour gérer vos commandes — ou créez un compte en quelques secondes.",
+    "heading": "Espace livreur",
+    "subheading": "Connectez-vous à votre tableau de bord.",
+    "emailPlaceholder": "Email",
+    "passwordPlaceholder": "Mot de passe",
+    "submit": "Se connecter",
+    "submitting": "Connexion…",
+    "forgotPassword": "Mot de passe oublié ?",
+    "invalidCredentials": "Identifiants invalides.",
+    "googleUnavailable": "Connexion Google indisponible.",
+    "signupPrompt": "Pas encore de compte ? Inscrivez votre service, obtenez votre page de commande à partager et recevez vos livraisons directement sur votre tableau de bord.",
+    "signupAction": "Créer un compte livreur",
+    "or": "ou",
+    "continueWithGoogle": "Continuer avec Google"
+  },
+  "Driver": {
+    "benefitOrders": "Recevez vos commandes directement sur votre tableau de bord.",
+    "benefitShareLink": "Votre page de commande à partager avec vos clients.",
+    "benefitZone": "Couvrez la zone de votre choix et fixez vos frais de livraison.",
+    "benefitCod": "Paiement à la livraison — le prix est confirmé avant chaque achat."
+  },
   "RoleChoice": {
     "title": "Bienvenue sur Wamye",
     "subtitle": "Que souhaitez-vous faire ?",

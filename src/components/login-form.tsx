@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/browser";
 
 /**
@@ -11,6 +12,7 @@ import { createClient } from "@/lib/supabase/browser";
  * enabled in Supabase first). The public ordering pages need no login.
  */
 export function LoginForm({ next }: { next: string }) {
+  const t = useTranslations("Login");
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,7 +28,7 @@ export function LoginForm({ next }: { next: string }) {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      setError("Identifiants invalides.");
+      setError(t("invalidCredentials"));
       setBusy(false);
       return;
     }
@@ -44,7 +46,7 @@ export function LoginForm({ next }: { next: string }) {
       options: { redirectTo },
     });
     if (error) {
-      setError("Connexion Google indisponible.");
+      setError(t("googleUnavailable"));
       setBusy(false);
     }
   }
@@ -52,8 +54,8 @@ export function LoginForm({ next }: { next: string }) {
   return (
     <div className="flex w-full flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold text-stone-ink">Espace livreur</h1>
-        <p className="text-[14px] text-stone-muted">Connectez-vous à votre tableau de bord.</p>
+        <h1 className="text-xl font-semibold text-stone-ink">{t("heading")}</h1>
+        <p className="text-[14px] text-stone-muted">{t("subheading")}</p>
       </div>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
@@ -61,7 +63,7 @@ export function LoginForm({ next }: { next: string }) {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email"
+          placeholder={t("emailPlaceholder")}
           autoComplete="email"
           required
           className="h-12 rounded-[10px] border border-hair bg-white px-3.5 text-[15px] text-stone-ink outline-none focus:border-brand focus:ring-[3px] focus:ring-brand/15"
@@ -70,7 +72,7 @@ export function LoginForm({ next }: { next: string }) {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Mot de passe"
+          placeholder={t("passwordPlaceholder")}
           autoComplete="current-password"
           required
           className="h-12 rounded-[10px] border border-hair bg-white px-3.5 text-[15px] text-stone-ink outline-none focus:border-brand focus:ring-[3px] focus:ring-brand/15"
@@ -81,33 +83,31 @@ export function LoginForm({ next }: { next: string }) {
           disabled={busy}
           className="h-12 w-full rounded-[10px] bg-brand text-[15px] font-semibold text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:bg-hair disabled:text-stone-faint"
         >
-          {busy ? "Connexion…" : "Se connecter"}
+          {busy ? t("submitting") : t("submit")}
         </button>
         <Link
           href="/auth/forgot"
           className="self-center text-[13px] text-brand underline underline-offset-[3px]"
         >
-          Mot de passe oublié ?
+          {t("forgotPassword")}
         </Link>
       </form>
 
       <div className="flex flex-col gap-2 rounded-[12px] border border-brand-border bg-brand-bg p-4 text-center">
-        <p className="text-[13px] leading-relaxed text-brand-ink/80">
-          Pas encore de compte ? Inscrivez votre service, obtenez votre page de commande à
-          partager et recevez vos livraisons directement sur votre tableau de bord.
-        </p>
+        <p className="text-[13px] leading-relaxed text-brand-ink/80">{t("signupPrompt")}</p>
         <Link
           href="/signup"
           className="self-center font-semibold text-brand underline underline-offset-[3px]"
         >
-          Créer un compte livreur
+          {t("signupAction")}
         </Link>
       </div>
 
       {googleEnabled && (
         <>
           <div className="flex items-center gap-3 text-[12px] text-stone-faint">
-            <span className="h-px flex-1 bg-hair" /> ou <span className="h-px flex-1 bg-hair" />
+            <span className="h-px flex-1 bg-hair" /> {t("or")}{" "}
+            <span className="h-px flex-1 bg-hair" />
           </div>
           <button
             type="button"
@@ -115,7 +115,7 @@ export function LoginForm({ next }: { next: string }) {
             disabled={busy}
             className="h-12 w-full rounded-[10px] border border-hair bg-white text-[15px] font-medium text-stone-ink transition-colors hover:bg-hair-2 disabled:opacity-50"
           >
-            Continuer avec Google
+            {t("continueWithGoogle")}
           </button>
         </>
       )}
