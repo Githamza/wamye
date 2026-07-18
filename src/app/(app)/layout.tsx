@@ -13,6 +13,7 @@ import { cookies } from "next/headers";
 import { NextIntlClientProvider } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { Toaster } from "@/components/ui/sonner";
+import { Clarity } from "@/components/clarity";
 import { fontVariables } from "@/app/fonts";
 import { getProfile } from "@/lib/auth/dal";
 import {
@@ -85,6 +86,7 @@ export default async function AppRootLayout({
       <body className="min-h-full bg-page">
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
         <Toaster position="bottom-center" />
+        <Clarity />
       </body>
     </html>
   );
