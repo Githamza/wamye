@@ -50,8 +50,14 @@ export default async function LandingPage({ params }: PageProps<"/[lang]">) {
             </span>
           </Link>
 
-          {/* Driver → the rebuilt login page. Highlighted in brand style. */}
-          <Link
+          {/* Driver → the rebuilt login page. Highlighted in brand style.
+              A plain <a>, not <Link>: /login lives in the (app) group, whose
+              language comes from the cookie rather than this URL. A client-side
+              Link navigation would serve a prefetched copy rendered before the
+              cookie was synced (French), leaving the document in the wrong
+              language; a full load makes /login arrive fresh in the cookie's
+              locale. Same reason the LocaleSwitcher is an <a>. */}
+          <a
             href="/login"
             className="group flex flex-col gap-3 rounded-[16px] border border-brand bg-brand p-6 text-white shadow-sm transition-colors hover:bg-brand-hover"
           >
@@ -68,7 +74,7 @@ export default async function LandingPage({ params }: PageProps<"/[lang]">) {
               {t("driverAction")}
               <span className="inline-block rtl:rotate-180">›</span>
             </span>
-          </Link>
+          </a>
         </div>
       </main>
 
