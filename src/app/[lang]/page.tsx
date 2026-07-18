@@ -45,8 +45,9 @@ export default async function LandingPage({ params }: PageProps<"/[lang]">) {
           <LocaleSwitcher />
           <Link
             href="/login"
-            className="rounded-[10px] border border-hair bg-white px-3.5 py-2 text-[13px] font-medium text-stone-muted2 transition-colors hover:bg-hair-2"
+            className="flex items-center gap-1.5 rounded-[10px] bg-brand px-3.5 py-2 text-[13px] font-semibold text-white shadow-sm transition-colors hover:bg-brand-hover"
           >
+            <span aria-hidden>🛵</span>
             {t("driverArea")}
           </Link>
         </div>

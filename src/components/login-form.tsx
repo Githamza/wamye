@@ -91,9 +91,15 @@ export function LoginForm({ next }: { next: string }) {
         </Link>
       </form>
 
-      <div className="flex items-center justify-center gap-1.5 text-[13px] text-stone-muted">
-        <span>Pas encore de compte ?</span>
-        <Link href="/signup" className="font-medium text-brand underline underline-offset-[3px]">
+      <div className="flex flex-col gap-2 rounded-[12px] border border-brand-border bg-brand-bg p-4 text-center">
+        <p className="text-[13px] leading-relaxed text-brand-ink/80">
+          Pas encore de compte ? Inscrivez votre service, obtenez votre page de commande à
+          partager et recevez vos livraisons directement sur votre tableau de bord.
+        </p>
+        <Link
+          href="/signup"
+          className="self-center font-semibold text-brand underline underline-offset-[3px]"
+        >
           Créer un compte livreur
         </Link>
       </div>
