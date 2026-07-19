@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/dal";
+import { sendAccountReadyEmail, tenantOwnerEmail } from "@/lib/auth/approval-email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { encryptSecret } from "@/lib/crypto";
 import { slugify } from "@/lib/slug";
@@ -20,8 +21,8 @@ function num(v: FormDataEntryValue | null, fallback: number): number {
 
 /**
  * Provision a new tenant (super-admin only): the tenant row, its encrypted
- * Fleetbase key, and a tenant_admin login. The new admin sets their password
- * via the /auth/forgot flow (no password handled here).
+ * Fleetbase key, and a tenant_admin login. No password is handled here: the
+ * new admin gets an email whose link lets them set one (sendAccountReadyEmail).
  */
 export async function createTenant(formData: FormData) {
   await requireRole("super_admin");
@@ -111,6 +112,8 @@ export async function createTenant(formData: FormData) {
       role: "tenant_admin",
       name,
     });
+    // The login has no password yet; the mail's link lets them set one.
+    await sendAccountReadyEmail(adminEmail, "created");
   }
 
   revalidatePath("/admin");
@@ -145,6 +148,11 @@ export async function approveTenant(formData: FormData) {
     .from("tenants")
     .update({ status: "active", is_active: true })
     .eq("id", id);
+
+  // Tell the owner their account is ready (best effort, see helper).
+  const email = await tenantOwnerEmail(id);
+  if (email) await sendAccountReadyEmail(email);
+
   revalidatePath("/admin");
   revalidatePath(`/admin/tenants/${id}`);
 }

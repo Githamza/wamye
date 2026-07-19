@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getProfile, requireOwner, requireRole } from "@/lib/auth/dal";
+import { sendAccountReadyEmail } from "@/lib/auth/approval-email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getTenantFleetbaseContext } from "@/lib/tenant";
 import { toInternationalPhone } from "@/lib/phone";
@@ -265,6 +266,10 @@ export async function approveSubDriver(formData: FormData) {
 
   // Best effort: the retry button on the team list covers a failure here.
   await syncDriverToFleetbase(id);
+
+  // Tell the driver their account is ready (best effort, see helper).
+  const { data } = await supabase.auth.admin.getUserById(id);
+  if (data?.user?.email) await sendAccountReadyEmail(data.user.email);
 
   revalidatePath("/dashboard/team");
   if (tenantId) revalidatePath(`/admin/tenants/${tenantId}`);
