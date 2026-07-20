@@ -73,7 +73,12 @@ export async function sendAccountReadyEmail(
 ): Promise<void> {
   try {
     const apiKey = process.env.BREVO_API_KEY;
-    if (!apiKey) return await sendSupabaseFallback(email);
+    if (!apiKey) {
+      console.error(
+        "[account-ready] BREVO_API_KEY missing at runtime — falling back to Supabase recovery template",
+      );
+      return await sendSupabaseFallback(email);
+    }
 
     const supabase = createAdminClient();
     const { data, error } = await supabase.auth.admin.generateLink({
