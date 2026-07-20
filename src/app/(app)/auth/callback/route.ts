@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const nextRaw = searchParams.get("next");
   const next = nextRaw && nextRaw.startsWith("/") ? nextRaw : "/dashboard";
@@ -14,8 +14,11 @@ export async function GET(request: Request) {
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) return NextResponse.redirect(`${origin}${next}`);
+    // Relative Location: resolved against the public origin by the browser,
+    // not the proxy's internal host (0.0.0.0:3000).
+    if (!error)
+      return new NextResponse(null, { status: 303, headers: { Location: next } });
   }
 
-  return NextResponse.redirect(`${origin}/login`);
+  return new NextResponse(null, { status: 303, headers: { Location: "/login" } });
 }

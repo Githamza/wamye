@@ -126,7 +126,12 @@ async function authenticate(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    const loginUrl = new URL("/login", request.url);
+    // nextUrl, not request.url: nextUrl carries the public origin from the
+    // forwarded headers, while request.url keeps the internal bind address
+    // (0.0.0.0:3000) when running behind the reverse proxy.
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    loginUrl.search = "";
     loginUrl.searchParams.set("next", request.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
   }

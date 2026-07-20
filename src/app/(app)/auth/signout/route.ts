@@ -3,8 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(request: Request) {
+export async function POST() {
   const supabase = await createClient();
   await supabase.auth.signOut();
-  return NextResponse.redirect(new URL("/login", request.url), { status: 303 });
+  // Relative Location: the browser resolves it against the public origin,
+  // so the proxy's internal host (0.0.0.0:3000) never leaks into the redirect.
+  return new NextResponse(null, { status: 303, headers: { Location: "/login" } });
 }
