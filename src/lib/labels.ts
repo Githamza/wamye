@@ -18,29 +18,47 @@ import type { OrderStage } from "@/lib/order-types";
 /** Tenants and team members share one lifecycle vocabulary. */
 export type AccountStatus = "pending" | "active" | "suspended";
 
-const STAGE_LABEL: Record<OrderStage, string> = {
-  searching: "Recherche livreur",
-  enroute: "En route",
-  delivered: "Livré",
-  canceled: "Annulé",
+const STAGE_LABEL: Record<string, Record<OrderStage, string>> = {
+  fr: {
+    searching: "Recherche livreur",
+    enroute: "En route",
+    delivered: "Livré",
+    canceled: "Annulé",
+  },
+  "ar-TN": {
+    searching: "يستنّى في موصّل",
+    enroute: "في الطريق",
+    delivered: "وصل",
+    canceled: "تلغى",
+  },
 };
 
-const STATUS_LABEL: Record<AccountStatus, string> = {
-  pending: "En attente",
-  active: "Actif",
-  suspended: "Suspendu",
+const STATUS_LABEL: Record<string, Record<AccountStatus, string>> = {
+  fr: {
+    pending: "En attente",
+    active: "Actif",
+    suspended: "Suspendu",
+  },
+  "ar-TN": {
+    pending: "في الانتظار",
+    active: "مفعّل",
+    suspended: "موقوف",
+  },
 };
 
 /**
  * The label for a delivery stage. Fleetbase is the source of `stage` and can
  * report one we do not model, so an unknown value falls back to itself rather
- * than rendering blank.
+ * than rendering blank. An unknown locale falls back to French, which keeps
+ * admin (French-only) callers passing nothing.
  */
-export function stageLabel(stage: string): string {
-  return STAGE_LABEL[stage as OrderStage] ?? stage;
+export function stageLabel(stage: string, locale: string = "fr"): string {
+  const map = STAGE_LABEL[locale] ?? STAGE_LABEL.fr;
+  return map[stage as OrderStage] ?? stage;
 }
 
 /** The label for a tenant or team-member status, falling back to itself. */
-export function statusLabel(status: string): string {
-  return STATUS_LABEL[status as AccountStatus] ?? status;
+export function statusLabel(status: string, locale: string = "fr"): string {
+  const map = STATUS_LABEL[locale] ?? STATUS_LABEL.fr;
+  return map[status as AccountStatus] ?? status;
 }

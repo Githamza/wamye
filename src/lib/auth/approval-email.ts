@@ -1,21 +1,6 @@
 import "server-only";
-import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-/**
- * Origin for links in outgoing emails. SITE_URL when configured, so links
- * always carry the canonical public domain no matter which of the app's
- * hosts (custom domain, sslip.io fallback) served the request; otherwise
- * the origin of the current request (proxy-aware) — dev has no SITE_URL.
- */
-async function siteOrigin(): Promise<string> {
-  const configured = process.env.SITE_URL?.replace(/\/+$/, "");
-  if (configured) return configured;
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
-  const proto = h.get("x-forwarded-proto") ?? "https";
-  return `${proto}://${host}`;
-}
+import { siteOrigin } from "@/lib/site-url";
 
 /**
  * "approved": a super-admin validated the account. "created": a super-admin
@@ -38,8 +23,28 @@ const COPY: Record<AccountReadyKind, { subject: string; headline: string; body: 
   },
 };
 
-function renderHtml(kind: AccountReadyKind, actionLink: string): string {
+function renderHtml(
+  kind: AccountReadyKind,
+  actionLink: string,
+  navigatorConnectUrl?: string,
+): string {
   const { headline, body } = COPY[kind];
+  // Install-first on purpose: the connect page's deep link only works once
+  // the app is on the phone, so the order of the two steps matters.
+  const navigatorBlock = navigatorConnectUrl
+    ? `
+      <hr style="margin:28px 0;border:none;border-top:1px solid #99F6E4">
+      <h2 style="margin:0 0 8px;font-size:16px;color:#134E4A">Étape suivante : l'application Navigator</h2>
+      <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#333">
+        1) Installez l'application <strong>Navigator</strong> depuis le Play Store ou l'App Store.<br>
+        2) Ouvrez ensuite ce lien <strong>sur votre téléphone</strong> et suivez les étapes
+        pour connecter l'application et recevoir vos courses.
+      </p>
+      <a href="${navigatorConnectUrl}"
+         style="display:inline-block;background:#ffffff;color:#0F766E;border:1px solid #0F766E;text-decoration:none;font-weight:600;font-size:14px;padding:11px 20px;border-radius:10px">
+        Connecter Navigator
+      </a>`
+    : "";
   return `<!doctype html>
 <html lang="fr">
   <body style="margin:0;padding:24px;background:#F0FDFA;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif">
@@ -54,7 +59,7 @@ function renderHtml(kind: AccountReadyKind, actionLink: string): string {
       <p style="margin:24px 0 0;font-size:13px;line-height:1.5;color:#777">
         Ce lien est à usage unique et expire rapidement. S'il ne fonctionne plus,
         utilisez « Mot de passe oublié » sur la page de connexion.
-      </p>
+      </p>${navigatorBlock}
     </div>
   </body>
 </html>`;
@@ -77,6 +82,10 @@ function renderHtml(kind: AccountReadyKind, actionLink: string): string {
 export async function sendAccountReadyEmail(
   email: string,
   kind: AccountReadyKind = "approved",
+  /** Tenant's /connect/<token> URL; when present the mail adds a
+   *  "next step: connect Navigator" section. Optional — the account mail
+   *  must go out even when the token can't be resolved. */
+  navigatorConnectUrl?: string,
 ): Promise<void> {
   try {
     const apiKey = process.env.BREVO_API_KEY;
@@ -113,7 +122,7 @@ export async function sendAccountReadyEmail(
         },
         to: [{ email }],
         subject: COPY[kind].subject,
-        htmlContent: renderHtml(kind, actionLink),
+        htmlContent: renderHtml(kind, actionLink, navigatorConnectUrl),
       }),
     });
     if (!res.ok) {

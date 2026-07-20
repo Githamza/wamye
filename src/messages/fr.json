@@ -155,6 +155,143 @@
     "action": "Être prévenu",
     "toast": "C'est noté — on vous prévient à l'ouverture 👋"
   },
+  "Dashboard": {
+    "nav": {
+      "orders": "Commandes",
+      "stats": "Statistiques",
+      "clients": "Clients",
+      "team": "Équipe",
+      "settings": "Réglages"
+    },
+    "header": {
+      "fallbackTitle": "Tableau de bord",
+      "signOut": "Déconnexion"
+    },
+    "shopLink": {
+      "title": "Votre page client",
+      "copied": "Copié ✓",
+      "copyFailed": "Copie impossible",
+      "copy": "Copier",
+      "open": "Ouvrir",
+      "hint": "C'est sur cette page que vos clients passent leurs commandes. Mettez ce lien dans la bio de vos réseaux sociaux — Instagram, TikTok, Facebook, WhatsApp — et envoyez-le directement à vos clients."
+    },
+    "start": {
+      "title": "Comment démarrer",
+      "shareTitle": "Partagez votre page client",
+      "shareBody": "La page client, c'est là que vos clients commandent. Copiez le lien ci-dessus, mettez-le dans la bio de vos réseaux sociaux (Instagram, TikTok, Facebook, WhatsApp) et communiquez-le à vos clients.",
+      "appTitle": "Installez l'application Navigator",
+      "appBody": "C'est dans Navigator que vous recevez les commandes et gérez vos livraisons. Téléchargez-la, connectez-vous, et restez en ligne : tant que vous êtes en ligne, chaque nouvelle commande vous parvient.",
+      "playStore": "Google Play",
+      "appStore": "App Store",
+      "teamTitle": "Créez votre équipe (optionnel)",
+      "teamBody": "Vous n'êtes pas obligé de livrer seul : depuis la page Équipe, ajoutez des livreurs qui travaillent avec vous.",
+      "teamLink": "Ouvrir la page Équipe",
+      "connectHint": "Une fois installée, l'application doit être connectée à votre compte : le lien de connexion se trouve sur la page Équipe.",
+      "connectLink": "Obtenir le lien de connexion"
+    },
+    "orders": {
+      "title": "Commandes",
+      "empty": "Aucune commande pour le moment. Dès qu'un client commande sur votre page, elle apparaît ici."
+    },
+    "clients": {
+      "title": "Clients",
+      "empty": "Aucun client pour le moment. Ils apparaissent dès la première commande.",
+      "fallbackName": "Client"
+    },
+    "stats": {
+      "title": "Statistiques",
+      "window": "Sur les {days} derniers jours.",
+      "total": "Commandes (total)",
+      "last7": "7 derniers jours",
+      "last30": "30 derniers jours",
+      "revenue": "Revenus (frais)",
+      "avgDistance": "Distance moyenne",
+      "byStage": "Répartition par statut",
+      "empty": "Aucune commande pour le moment."
+    },
+    "settings": {
+      "title": "Réglages",
+      "sectionGeneral": "Marque & zone",
+      "name": "Nom",
+      "logoEmoji": "Emoji logo",
+      "areaLabel": "Zone (libellé)",
+      "supportPhone": "Téléphone support",
+      "baseFee": "Frais de base (DT)",
+      "feePerKm": "Frais / km",
+      "minFee": "Frais min (DT)",
+      "openHour": "Ouverture (h)",
+      "closeHour": "Fermeture (h)",
+      "alwaysOpen": "Toujours ouvert",
+      "save": "Enregistrer"
+    },
+    "team": {
+      "title": "Équipe",
+      "intro": "Vous n'êtes pas obligé de livrer seul : créez une équipe de livreurs qui travaillent avec vous. Chaque membre a son propre compte et reçoit les livraisons dans l'application Navigator — et vos clients commandent toujours sur la même page.",
+      "added": "Livreur ajouté ✓ Un administrateur doit valider son compte avant qu'il puisse recevoir des livraisons.",
+      "errorFallback": "Une erreur est survenue.",
+      "errorMissing": "Nom, e-mail, téléphone et un mot de passe d'au moins 8 caractères sont requis.",
+      "errorEmail": "Cet e-mail est déjà utilisé.",
+      "errorInsert": "Impossible de créer le livreur. Réessayez.",
+      "errorForbidden": "Ce livreur ne fait pas partie de votre équipe.",
+      "errorPending": "Ce livreur attend encore la validation d'un administrateur.",
+      "you": "(vous)",
+      "noPhone": "Aucun numéro — requis pour recevoir des livraisons",
+      "phonePlaceholder": "Votre numéro",
+      "savePhone": "Enregistrer",
+      "addTitle": "Ajouter un livreur à votre équipe",
+      "namePlaceholder": "Nom complet",
+      "emailPlaceholder": "E-mail (servira d'identifiant)",
+      "memberPhonePlaceholder": "Téléphone",
+      "passwordPlaceholder": "Mot de passe provisoire (8 caractères min.)",
+      "add": "Ajouter",
+      "addHint": "Communiquez-lui cet e-mail et ce mot de passe. Il pourra se connecter immédiatement, mais ne recevra des livraisons qu'une fois validé par un administrateur — et seulement s'il est en ligne dans l'application Navigator.",
+      "empty": "Aucun livreur dans votre équipe pour l'instant.",
+      "suspend": "Suspendre",
+      "reactivate": "Réactiver",
+      "remove": "Retirer"
+    },
+    "sync": {
+      "synced": "Navigator ✓",
+      "button": "Activer Navigator",
+      "pending": "Activation…",
+      "created": "Livreur activé ✓",
+      "linked": "Compte Navigator existant relié ✓",
+      "alreadySynced": "Déjà activé ✓",
+      "memberNotFound": "Membre introuvable.",
+      "forbidden": "Non autorisé.",
+      "phoneMissing": "Numéro de téléphone manquant.",
+      "noKey": "Compte pas encore connecté par l'administrateur.",
+      "emailNotFound": "E-mail introuvable.",
+      "failed": "Échec de l'activation.",
+      "failedDetail": "Échec ({status}) : {message}"
+    },
+    "navigator": {
+      "title": "Connexion de l'application Navigator",
+      "hint": "Envoyez ce lien à chaque livreur (y compris vous-même). Il l'ouvre sur son téléphone et suit les étapes : installer l'application, puis la connecter en un clic.",
+      "copy": "Copier le lien",
+      "copied": "Lien copié ✓",
+      "whatsapp": "Envoyer sur WhatsApp",
+      "waText": "Pour recevoir les livraisons, ouvre ce lien sur ton téléphone et suis les étapes : {url}",
+      "qrHint": "Ou scannez ce code avec l'appareil photo du téléphone du livreur."
+    }
+  },
+  "Connect": {
+    "title": "Connecter l'application Navigator",
+    "intro": "Suivez ces étapes sur votre téléphone pour recevoir les livraisons de {tenant}.",
+    "notReady": "Ce lien n'est pas encore actif. Contactez votre responsable.",
+    "step1Title": "Installez l'application Navigator",
+    "step1Body": "Téléchargez l'application depuis le store, puis revenez sur cette page.",
+    "playStore": "Google Play",
+    "appStore": "App Store",
+    "step2Title": "Connectez l'application",
+    "step2Body": "Une fois l'application installée, revenez ici et appuyez sur le bouton : l'application se configure toute seule puis redémarre.",
+    "step2Confirm": "J'ai installé l'application",
+    "connectButton": "Connecter l'application",
+    "connectFallback": "Rien ne se passe ? Vérifiez que l'application est bien installée, puis réessayez.",
+    "desktopHint": "Ouvrez cette page sur le téléphone du livreur pour continuer.",
+    "step3Title": "Connectez-vous avec votre numéro",
+    "step3Body": "Ouvrez Navigator, entrez votre numéro de téléphone, puis le code reçu par SMS ou par e-mail. Restez en ligne pour recevoir les livraisons."
+  },
   "ApiError": {
     "routing-unavailable": "Le calcul d'itinéraire n'est pas configuré.",
     "bad-request": "Requête invalide.",

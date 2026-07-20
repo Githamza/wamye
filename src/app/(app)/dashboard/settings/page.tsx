@@ -1,3 +1,4 @@
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { requireOwner } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { updateGeneral } from "@/lib/actions/tenant-settings";
@@ -26,6 +27,8 @@ function Field({
 
 export default async function SettingsPage() {
   const profile = await requireOwner();
+  setRequestLocale(profile.locale);
+  const tr = await getTranslations("Dashboard.settings");
   const supabase = createAdminClient();
 
   const { data: t } = await supabase
@@ -41,26 +44,26 @@ export default async function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-lg font-semibold text-stone-ink">Réglages</h1>
+      <h1 className="text-lg font-semibold text-stone-ink">{tr("title")}</h1>
 
       {/* GENERAL */}
       <form
         action={updateGeneral}
         className="flex flex-col gap-4 rounded-[14px] border border-hair bg-white p-5"
       >
-        <div className="text-[14px] font-semibold text-stone-ink">Marque & zone</div>
+        <div className="text-[14px] font-semibold text-stone-ink">{tr("sectionGeneral")}</div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Nom">
+          <Field label={tr("name")}>
             <input name="name" defaultValue={branding.name ?? t?.name ?? ""} className={input} />
           </Field>
-          <Field label="Emoji logo">
+          <Field label={tr("logoEmoji")}>
             <input name="logoEmoji" defaultValue={branding.logoEmoji ?? ""} className={input} />
           </Field>
-          <Field label="Zone (libellé)">
+          <Field label={tr("areaLabel")}>
             <input name="areaLabel" defaultValue={branding.areaLabel ?? ""} className={input} />
           </Field>
-          <Field label="Téléphone support">
+          <Field label={tr("supportPhone")}>
             <input name="supportPhone" defaultValue={branding.supportPhone ?? ""} className={input} />
           </Field>
         </div>
@@ -72,27 +75,27 @@ export default async function SettingsPage() {
         />
 
         <div className="grid grid-cols-3 gap-3">
-          <Field label="Frais de base (DT)">
+          <Field label={tr("baseFee")}>
             <input name="baseFee" type="number" step="any" defaultValue={fee.baseFee} className={input} />
           </Field>
-          <Field label="Frais / km">
+          <Field label={tr("feePerKm")}>
             <input name="feePerKm" type="number" step="any" defaultValue={fee.feePerKm} className={input} />
           </Field>
-          <Field label="Frais min (DT)">
+          <Field label={tr("minFee")}>
             <input name="minFee" type="number" step="any" defaultValue={fee.minFee} className={input} />
           </Field>
         </div>
 
         <div className="grid grid-cols-3 items-end gap-3">
-          <Field label="Ouverture (h)">
+          <Field label={tr("openHour")}>
             <input name="openHour" type="number" min="0" max="23" defaultValue={hours.openHour} className={input} />
           </Field>
-          <Field label="Fermeture (h)">
+          <Field label={tr("closeHour")}>
             <input name="closeHour" type="number" min="0" max="24" defaultValue={hours.closeHour} className={input} />
           </Field>
           <label className="flex h-11 items-center gap-2 text-[14px] text-stone-ink">
             <input name="alwaysOpen" type="checkbox" defaultChecked={hours.alwaysOpen} className="size-4" />
-            Toujours ouvert
+            {tr("alwaysOpen")}
           </label>
         </div>
 
@@ -100,7 +103,7 @@ export default async function SettingsPage() {
           type="submit"
           className="h-11 self-start rounded-[10px] bg-brand px-5 text-[14px] font-semibold text-white hover:bg-brand-hover"
         >
-          Enregistrer
+          {tr("save")}
         </button>
       </form>
     </div>

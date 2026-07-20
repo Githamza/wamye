@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/dal";
 import { sendAccountReadyEmail, tenantOwnerEmail } from "@/lib/auth/approval-email";
+import { syncDriverToFleetbase } from "@/lib/actions/team";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { encryptSecret } from "@/lib/crypto";
 import { slugify } from "@/lib/slug";
 import { getTenantFleetbaseContext } from "@/lib/tenant";
+import { navigatorConnectUrl } from "@/lib/navigator-link";
 import {
   createFleetbaseClient,
   envFleetbaseContext,
@@ -112,8 +114,10 @@ export async function createTenant(formData: FormData) {
       role: "tenant_admin",
       name,
     });
-    // The login has no password yet; the mail's link lets them set one.
-    await sendAccountReadyEmail(adminEmail, "created");
+    // The login has no password yet; the mail's link lets them set one. The
+    // Navigator link rides along — the admin is in practice the first driver.
+    const connectUrl = await navigatorConnectUrl(tenant.id as string);
+    await sendAccountReadyEmail(adminEmail, "created", connectUrl ?? undefined);
   }
 
   revalidatePath("/admin");
@@ -149,9 +153,25 @@ export async function approveTenant(formData: FormData) {
     .update({ status: "active", is_active: true })
     .eq("id", id);
 
-  // Tell the owner their account is ready (best effort, see helper).
+  // Tell the owner their account is ready, with the Navigator connection
+  // link as the next step (best effort, see helper).
   const email = await tenantOwnerEmail(id);
-  if (email) await sendAccountReadyEmail(email);
+  if (email) {
+    const connectUrl = await navigatorConnectUrl(id);
+    await sendAccountReadyEmail(email, "approved", connectUrl ?? undefined);
+  }
+
+  // The owner is in practice the first driver, so put them in the Fleetbase
+  // pool now rather than making them find the Team page. Best effort, same
+  // rule as sub-driver approval: approval stands even if the sync fails — the
+  // Team page keeps its retry button.
+  const { data: owner } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("tenant_id", id)
+    .is("parent_profile_id", null)
+    .maybeSingle();
+  if (owner) await syncDriverToFleetbase(owner.id as string);
 
   revalidatePath("/admin");
   revalidatePath(`/admin/tenants/${id}`);

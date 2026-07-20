@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { requireTenant } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardLocaleSwitcher } from "@/components/dashboard-locale-switcher";
@@ -9,12 +10,16 @@ export const dynamic = "force-dynamic";
 
 // ownerOnly hides a tab from sub-drivers. Cosmetic only — requireOwner() inside
 // each of those pages is the actual gate.
-const NAV = [
-  { href: "/dashboard", label: "Commandes" },
-  { href: "/dashboard/stats", label: "Statistiques", ownerOnly: true },
-  { href: "/dashboard/clients", label: "Clients" },
-  { href: "/dashboard/team", label: "Équipe", ownerOnly: true },
-  { href: "/dashboard/settings", label: "Réglages", ownerOnly: true },
+const NAV: {
+  href: string;
+  key: "orders" | "stats" | "clients" | "team" | "settings";
+  ownerOnly?: boolean;
+}[] = [
+  { href: "/dashboard", key: "orders" },
+  { href: "/dashboard/stats", key: "stats", ownerOnly: true },
+  { href: "/dashboard/clients", key: "clients" },
+  { href: "/dashboard/team", key: "team", ownerOnly: true },
+  { href: "/dashboard/settings", key: "settings", ownerOnly: true },
 ];
 
 export default async function DashboardLayout({
@@ -23,6 +28,11 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const profile = await requireTenant();
+
+  // next-intl resolves from the request locale, which must be set in this
+  // segment — the (app) root layout's call does not reach here.
+  setRequestLocale(profile.locale);
+  const t = await getTranslations("Dashboard");
 
   // Two independent gates. The member gate is checked first because a pending
   // sub-driver's current_tenant_id() is null, so the tenant read below would
@@ -48,7 +58,7 @@ export default async function DashboardLayout({
         <div className="flex items-center gap-3">
           <Logo variant="mark" />
           <div className="text-[15px] font-semibold text-stone-ink">
-            {tenant?.name ?? "Tableau de bord"}
+            {tenant?.name ?? t("header.fallbackTitle")}
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -61,7 +71,7 @@ export default async function DashboardLayout({
               type="submit"
               className="rounded-[8px] border border-hair px-3 py-1.5 text-[13px] font-medium text-stone-muted2 transition-colors hover:bg-hair-2"
             >
-              Déconnexion
+              {t("header.signOut")}
             </button>
           </form>
         </div>
@@ -74,7 +84,7 @@ export default async function DashboardLayout({
             href={n.href}
             className="whitespace-nowrap px-3 py-2.5 text-[14px] font-medium text-stone-muted2 hover:text-brand"
           >
-            {n.label}
+            {t(`nav.${n.key}`)}
           </Link>
         ))}
       </nav>

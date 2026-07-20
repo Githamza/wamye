@@ -303,6 +303,33 @@ export function createFleetbaseClient(ctx: FleetbaseContext) {
       return { id };
     },
 
+    /**
+     * Find an existing driver in this tenant's company by email — the recovery
+     * path when createDriver 422s because Fleetbase already knows the address
+     * (e.g. the owner's email was used for the company's admin user). Matching
+     * is done here rather than trusted to the server-side ?email= filter, so
+     * the result is exact whether or not FleetOps applies it.
+     */
+    async findDriverByEmail(email: string): Promise<CreatedDriver | null> {
+      const body = await request<unknown>(
+        ctx,
+        `/v1/drivers?email=${encodeURIComponent(email)}&limit=100`,
+      );
+      const list = Array.isArray(body)
+        ? body
+        : ((body as { drivers?: FleetbaseDriver[]; data?: FleetbaseDriver[] })
+            .drivers ??
+          (body as { data?: FleetbaseDriver[] }).data ??
+          []);
+
+      const wanted = email.trim().toLowerCase();
+      const match = (list as FleetbaseDriver[]).find(
+        (d) => (d.email ?? "").trim().toLowerCase() === wanted,
+      );
+      const id = match?.public_id ?? match?.id;
+      return id ? { id } : null;
+    },
+
     /** Cheap authenticated GET to validate the credentials ("Test connection"). */
     async ping(): Promise<void> {
       await request<FleetbaseOrder>(ctx, "/v1/orders?limit=1");

@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getTenantFleetbaseContext } from "@/lib/tenant";
 import { toInternationalPhone } from "@/lib/phone";
 import { createFleetbaseClient, FleetbaseError } from "@/lib/fleetbase";
+import { navigatorConnectUrl } from "@/lib/navigator-link";
 
 /**
  * Team management: a driver (tenant owner) adds sub-drivers who share their
@@ -25,6 +26,7 @@ import { createFleetbaseClient, FleetbaseError } from "@/lib/fleetbase";
  */
 export type SyncCode =
   | "created"
+  | "linked"
   | "already-synced"
   | "member-not-found"
   | "forbidden"
@@ -216,15 +218,30 @@ export async function syncDriverToFleetbase(profileId: string): Promise<SyncResu
   const email = authUser?.user?.email;
   if (!email) return { ok: false, code: "email-not-found" };
 
+  const fleetbase = createFleetbaseClient(ctx);
   try {
-    const driver = await createFleetbaseClient(ctx).createDriver({
-      name: (profile.name as string | null) ?? email,
-      email,
-      phone: toInternationalPhone(
-        profile.phone as string,
-        (tenant?.phone_country as string | null) ?? "TN",
-      ),
-    });
+    let driver: { id: string };
+    let code: SyncCode = "created";
+    try {
+      driver = await fleetbase.createDriver({
+        name: (profile.name as string | null) ?? email,
+        email,
+        phone: toInternationalPhone(
+          profile.phone as string,
+          (tenant?.phone_country as string | null) ?? "TN",
+        ),
+      });
+    } catch (err) {
+      // "Email already taken" means Fleetbase knows this person — typically
+      // the owner, whose address was used for the company's admin user. If a
+      // driver record already exists for it, adopt that record instead of
+      // failing; if only the *user* exists, rethrow so the 422 stays visible.
+      if (!(err instanceof FleetbaseError) || err.status !== 422) throw err;
+      const existing = await fleetbase.findDriverByEmail(email);
+      if (!existing) throw err;
+      driver = existing;
+      code = "linked";
+    }
 
     await supabase
       .from("profiles")
@@ -233,7 +250,7 @@ export async function syncDriverToFleetbase(profileId: string): Promise<SyncResu
 
     revalidatePath("/dashboard/team");
     revalidatePath(`/admin/tenants/${profile.tenant_id}`);
-    return { ok: true, code: "created" };
+    return { ok: true, code };
   } catch (err) {
     return err instanceof FleetbaseError
       ? {
@@ -267,9 +284,22 @@ export async function approveSubDriver(formData: FormData) {
   // Best effort: the retry button on the team list covers a failure here.
   await syncDriverToFleetbase(id);
 
-  // Tell the driver their account is ready (best effort, see helper).
+  // Tell the driver their account is ready, with the tenant's Navigator
+  // connection link as the next step (best effort, see helper).
   const { data } = await supabase.auth.admin.getUserById(id);
-  if (data?.user?.email) await sendAccountReadyEmail(data.user.email);
+  if (data?.user?.email) {
+    // The profile's tenant_id, not the form's: the form value is display
+    // routing only and may be absent.
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("tenant_id")
+      .eq("id", id)
+      .maybeSingle();
+    const connectUrl = prof?.tenant_id
+      ? await navigatorConnectUrl(prof.tenant_id as string)
+      : null;
+    await sendAccountReadyEmail(data.user.email, "approved", connectUrl ?? undefined);
+  }
 
   revalidatePath("/dashboard/team");
   if (tenantId) revalidatePath(`/admin/tenants/${tenantId}`);

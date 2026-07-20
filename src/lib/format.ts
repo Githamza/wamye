@@ -21,7 +21,10 @@ const DEFAULT_LOCALE = "fr-TN";
 /** Intl formatters are costly to build, so keep one per locale per shape. */
 function perLocale(make: (locale: string) => Intl.NumberFormat) {
   const cache = new Map<string, Intl.NumberFormat>();
-  return (locale: string) => {
+  return (appLocale: string) => {
+    // The app's "fr" means French as written in Tunisia: plain "fr" would
+    // print "7,5 TND" where every reader expects "7,5 DT".
+    const locale = appLocale === "fr" ? DEFAULT_LOCALE : appLocale;
     let format = cache.get(locale);
     if (!format) {
       format = make(locale);

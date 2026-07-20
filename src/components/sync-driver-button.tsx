@@ -1,33 +1,29 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { syncDriverToFleetbase, type SyncCode, type SyncResult } from "@/lib/actions/team";
 
-/** The wording lives here, not in the action: this component knows the reader. */
-const SYNC_MESSAGE: Record<SyncCode, string> = {
-  created: "Livreur créé dans Fleetbase ✓",
-  "already-synced": "Déjà synchronisé ✓",
-  "member-not-found": "Membre introuvable.",
-  forbidden: "Non autorisé.",
-  "phone-missing": "Numéro de téléphone manquant.",
-  "no-fleetbase-key": "Aucune clé Fleetbase pour ce compte. Connectez Fleetbase d'abord.",
-  "email-not-found": "E-mail introuvable.",
-  "fleetbase-error": "Échec de la synchronisation.",
-  failed: "Échec de la synchronisation.",
+// The action's codes name Fleetbase; the reader only ever hears "Navigator",
+// so the mapping from code to message key lives here, next to the wording.
+const MESSAGE_KEY: Record<SyncCode, string> = {
+  created: "created",
+  linked: "linked",
+  "already-synced": "alreadySynced",
+  "member-not-found": "memberNotFound",
+  forbidden: "forbidden",
+  "phone-missing": "phoneMissing",
+  "no-fleetbase-key": "noKey",
+  "email-not-found": "emailNotFound",
+  "fleetbase-error": "failed",
+  failed: "failed",
 };
 
-function syncMessage(result: NonNullable<SyncResult>): string {
-  // Fleetbase's own status and text are more useful than a generic failure.
-  if (result.detail) {
-    return `Échec (${result.detail.status}) : ${result.detail.message}`;
-  }
-  return SYNC_MESSAGE[result.code];
-}
-
 /**
- * Register a team member as a driver in the tenant's Fleetbase company. The
- * sync is retryable on purpose: approval must never hard-fail on a Fleetbase
- * outage, so it stays a separate, explicit step.
+ * Register a team member as a driver in the tenant's Fleetbase company, which
+ * is what lets Navigator dispatch to them. The sync is retryable on purpose:
+ * approval must never hard-fail on a Fleetbase outage, so it stays a separate,
+ * explicit step.
  */
 export function SyncDriverButton({
   profileId,
@@ -36,11 +32,12 @@ export function SyncDriverButton({
   profileId: string;
   synced: boolean;
 }) {
+  const t = useTranslations("Dashboard.sync");
   const [result, setResult] = useState<SyncResult>(null);
   const [pending, start] = useTransition();
 
   if (synced && !result) {
-    return <span className="text-[13px] text-success">Fleetbase ✓</span>;
+    return <span className="text-[13px] text-success">{t("synced")}</span>;
   }
 
   return (
@@ -51,11 +48,16 @@ export function SyncDriverButton({
         onClick={() => start(async () => setResult(await syncDriverToFleetbase(profileId)))}
         className="h-9 rounded-[8px] border border-hair bg-white px-3 text-[13px] font-medium text-stone-ink hover:bg-hair-2 disabled:opacity-50"
       >
-        {pending ? "Synchro…" : "Synchroniser Fleetbase"}
+        {pending ? t("pending") : t("button")}
       </button>
       {result && (
         <span className={`text-[13px] ${result.ok ? "text-success" : "text-danger-ink"}`}>
-          {syncMessage(result)}
+          {result.detail
+            ? t("failedDetail", {
+                status: result.detail.status,
+                message: result.detail.message,
+              })
+            : t(MESSAGE_KEY[result.code])}
         </span>
       )}
     </div>

@@ -1,3 +1,4 @@
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { requireOwner } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { formatDinar, formatKm } from "@/lib/format";
@@ -25,7 +26,9 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 export default async function StatsPage() {
-  await requireOwner();
+  const profile = await requireOwner();
+  setRequestLocale(profile.locale);
+  const t = await getTranslations("Dashboard.stats");
   const supabase = await createClient();
 
   const since = new Date(Date.now() - WINDOW_DAYS * 86400_000).toISOString();
@@ -63,28 +66,28 @@ export default async function StatsPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-lg font-semibold text-stone-ink">Statistiques</h1>
-        <p className="text-[13px] text-stone-muted">Sur les {WINDOW_DAYS} derniers jours.</p>
+        <h1 className="text-lg font-semibold text-stone-ink">{t("title")}</h1>
+        <p className="text-[13px] text-stone-muted">{t("window", { days: WINDOW_DAYS })}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <Stat label="Commandes (total)" value={String(total)} />
-        <Stat label="7 derniers jours" value={String(last7)} />
-        <Stat label="30 derniers jours" value={String(last30)} />
-        <Stat label="Revenus (frais)" value={formatDinar(revenue)} />
-        <Stat label="Distance moyenne" value={formatKm(avgDistance)} />
+        <Stat label={t("total")} value={String(total)} />
+        <Stat label={t("last7")} value={String(last7)} />
+        <Stat label={t("last30")} value={String(last30)} />
+        <Stat label={t("revenue")} value={formatDinar(revenue, profile.locale)} />
+        <Stat label={t("avgDistance")} value={formatKm(avgDistance, profile.locale)} />
       </div>
 
       <div className="flex flex-col gap-3 rounded-[14px] border border-hair bg-white p-5">
-        <div className="text-[14px] font-semibold text-stone-ink">Répartition par statut</div>
+        <div className="text-[14px] font-semibold text-stone-ink">{t("byStage")}</div>
         {breakdown.length === 0 ? (
-          <p className="text-[14px] text-stone-muted">Aucune commande pour le moment.</p>
+          <p className="text-[14px] text-stone-muted">{t("empty")}</p>
         ) : (
           <ul className="flex flex-col gap-2.5">
             {breakdown.map(([stage, count]) => (
               <li key={stage} className="flex items-center gap-3">
                 <span className="w-32 flex-none text-[13px] text-stone-muted2">
-                  {stageLabel(stage)}
+                  {stageLabel(stage, profile.locale)}
                 </span>
                 <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-hair-2">
                   <div
@@ -92,7 +95,7 @@ export default async function StatsPage() {
                     style={{ width: `${maxCount > 0 ? (count / maxCount) * 100 : 0}%` }}
                   />
                 </div>
-                <span className="w-8 flex-none text-right text-[13px] font-medium text-stone-ink">
+                <span className="w-8 flex-none text-end text-[13px] font-medium text-stone-ink">
                   {count}
                 </span>
               </li>
