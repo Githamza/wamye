@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/browser";
+import { requestPasswordReset } from "@/lib/actions/auth";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -11,10 +11,10 @@ export default function ForgotPasswordPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const supabase = createClient();
-    await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/update-password`,
-    });
+    // Server action, not the browser client: the emailed link then carries
+    // the canonical SITE_URL origin and opens fine in any browser (a PKCE
+    // link minted here would only work in this one).
+    await requestPasswordReset(email).catch(() => {});
     // Always report success (don't reveal whether the email exists).
     setSent(true);
     setBusy(false);

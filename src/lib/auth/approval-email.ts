@@ -2,8 +2,15 @@ import "server-only";
 import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-/** Origin of the current request (proxy-aware), for links in outgoing emails. */
-async function requestOrigin(): Promise<string> {
+/**
+ * Origin for links in outgoing emails. SITE_URL when configured, so links
+ * always carry the canonical public domain no matter which of the app's
+ * hosts (custom domain, sslip.io fallback) served the request; otherwise
+ * the origin of the current request (proxy-aware) — dev has no SITE_URL.
+ */
+async function siteOrigin(): Promise<string> {
+  const configured = process.env.SITE_URL?.replace(/\/+$/, "");
+  if (configured) return configured;
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
   const proto = h.get("x-forwarded-proto") ?? "https";
@@ -84,7 +91,7 @@ export async function sendAccountReadyEmail(
     const { data, error } = await supabase.auth.admin.generateLink({
       type: "recovery",
       email,
-      options: { redirectTo: `${await requestOrigin()}/auth/update-password` },
+      options: { redirectTo: `${await siteOrigin()}/auth/update-password` },
     });
     const actionLink = data?.properties?.action_link;
     if (error || !actionLink) {
@@ -119,11 +126,22 @@ export async function sendAccountReadyEmail(
 }
 
 async function sendSupabaseFallback(email: string): Promise<void> {
+  await sendPasswordResetEmail(email);
+}
+
+/**
+ * Recovery email via Supabase's stock template — also the "Mot de passe
+ * oublié" flow. Sent with the admin client (not the visitor's browser client)
+ * so the link (a) carries the canonical SITE_URL origin whichever host the
+ * visitor used, and (b) is an implicit-flow link that works in any browser —
+ * a PKCE link minted in the browser dies when the email is opened elsewhere.
+ */
+export async function sendPasswordResetEmail(email: string): Promise<void> {
   const supabase = createAdminClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${await requestOrigin()}/auth/update-password`,
+    redirectTo: `${await siteOrigin()}/auth/update-password`,
   });
-  if (error) console.error(`fallback recovery email to ${email} failed:`, error.message);
+  if (error) console.error(`recovery email to ${email} failed:`, error.message);
 }
 
 /**
