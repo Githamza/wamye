@@ -183,11 +183,8 @@
       "appBody": "C'est dans Navigator que vous recevez les commandes et gérez vos livraisons. Téléchargez-la, connectez-vous, et restez en ligne : tant que vous êtes en ligne, chaque nouvelle commande vous parvient.",
       "playStore": "Google Play",
       "appStore": "App Store",
-      "teamTitle": "Créez votre équipe (optionnel)",
-      "teamBody": "Vous n'êtes pas obligé de livrer seul : depuis la page Équipe, ajoutez des livreurs qui travaillent avec vous.",
-      "teamLink": "Ouvrir la page Équipe",
-      "connectHint": "Une fois installée, l'application doit être connectée à votre compte : le lien de connexion se trouve sur la page Équipe.",
-      "connectLink": "Obtenir le lien de connexion"
+      "connectTitle": "Connectez l'application",
+      "connectBody": "Depuis votre téléphone, appuyez sur le bouton : Navigator se configure tout seul et redémarre. Connectez-vous ensuite avec votre numéro de téléphone et restez en ligne."
     },
     "orders": {
       "title": "Commandes",

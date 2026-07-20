@@ -2,26 +2,16 @@
 
 import { useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
+import { usePlatform } from "@/components/navigator-platform";
+import { NavigatorConnectButton } from "@/components/navigator-connect-button";
 
 /**
  * Remembered per device: a driver who already confirmed the install lands
  * back on step 2 unlocked when they return from the store or the email link.
+ * Read through useSyncExternalStore with a server fallback — the server
+ * render shows step 1 locked, the client corrects it without an effect.
  */
 const INSTALLED_KEY = "wamye_navigator_installed";
-
-type Platform = "android" | "ios" | "other";
-
-function detectPlatform(): Platform {
-  const ua = navigator.userAgent;
-  if (/android/i.test(ua)) return "android";
-  if (/iphone|ipad|ipod/i.test(ua)) return "ios";
-  return "other";
-}
-
-// Both values live outside React (user agent, localStorage), so they are read
-// through useSyncExternalStore with a server fallback — the server render
-// shows step 1 locked, the client corrects it without an effect.
-const noopSubscribe = () => () => {};
 
 const installedListeners = new Set<() => void>();
 function subscribeInstalled(listener: () => void) {
@@ -67,10 +57,8 @@ export function NavigatorConnectSteps({
   appStoreUrl: string;
 }) {
   const t = useTranslations("Connect");
-  const platform = useSyncExternalStore(noopSubscribe, detectPlatform, () => "other" as Platform);
+  const platform = usePlatform();
   const installed = useSyncExternalStore(subscribeInstalled, readInstalled, () => false);
-
-  const deepLink = platform === "android" ? androidLink : iosLink;
 
   return (
     <ol className="flex flex-col gap-6">
@@ -107,20 +95,8 @@ export function NavigatorConnectSteps({
             >
               {t("step2Confirm")}
             </button>
-          ) : platform === "other" ? (
-            <p className="text-[13px] font-medium text-stone-muted2">{t("desktopHint")}</p>
           ) : (
-            <>
-              <a
-                href={deepLink}
-                className="flex h-12 w-fit items-center rounded-[10px] bg-brand px-6 text-[15px] font-semibold text-white"
-              >
-                {t("connectButton")}
-              </a>
-              <p className="text-[12px] leading-relaxed text-stone-muted">
-                {t("connectFallback")}
-              </p>
-            </>
+            <NavigatorConnectButton iosLink={iosLink} androidLink={androidLink} />
           )}
         </div>
       </li>

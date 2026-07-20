@@ -1,11 +1,13 @@
-import Link from "next/link";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { requireTenant } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { formatDinar } from "@/lib/format";
 import { stageLabel } from "@/lib/labels";
 import { ShopLink } from "@/components/shop-link";
+import { NavigatorConnectButton } from "@/components/navigator-connect-button";
+import { getTenantFleetbaseContext } from "@/lib/tenant";
 import {
+  buildNavigatorDeepLinks,
   NAVIGATOR_APP_STORE_URL,
   NAVIGATOR_PLAY_URL,
 } from "@/lib/navigator-link";
@@ -66,6 +68,12 @@ export default async function OrdersPage() {
 
   const orders = (data ?? []) as OrderRow[];
 
+  // The configure deep link for step 3 — the driver taps it right here and
+  // Navigator points itself at this tenant's instance. Null until the
+  // admin has stored the tenant's Fleetbase key.
+  const ctx = tenant?.slug ? await getTenantFleetbaseContext(tenant.slug) : null;
+  const navigatorLinks = ctx ? buildNavigatorDeepLinks(ctx) : null;
+
   return (
     <div className="flex flex-col gap-4">
       {tenant?.slug && <ShopLink slug={tenant.slug} />}
@@ -109,32 +117,21 @@ export default async function OrdersPage() {
               </a>
             </div>
             {/* Screen captures of the Navigator app slot in here. */}
-            {profile.isOwner && (
-              <p className="text-[13px] leading-relaxed text-stone-muted">
-                {t("start.connectHint")}{" "}
-                <Link
-                  href="/dashboard/team"
-                  className="font-medium text-brand hover:underline"
-                >
-                  {t("start.connectLink")} →
-                </Link>
-              </p>
-            )}
           </Step>
 
-          {profile.isOwner && (
-            <Step number={3} title={t("start.teamTitle")}>
-              <p className="text-[13px] leading-relaxed text-stone-muted">
-                {t("start.teamBody")}
-              </p>
-              <Link
-                href="/dashboard/team"
-                className="w-fit text-[13px] font-medium text-brand hover:underline"
-              >
-                {t("start.teamLink")} →
-              </Link>
-            </Step>
-          )}
+          <Step number={3} title={t("start.connectTitle")}>
+            <p className="text-[13px] leading-relaxed text-stone-muted">
+              {t("start.connectBody")}
+            </p>
+            {navigatorLinks ? (
+              <NavigatorConnectButton
+                iosLink={navigatorLinks.ios}
+                androidLink={navigatorLinks.android}
+              />
+            ) : (
+              <p className="text-[13px] text-stone-muted2">{t("sync.noKey")}</p>
+            )}
+          </Step>
         </ol>
       </details>
 

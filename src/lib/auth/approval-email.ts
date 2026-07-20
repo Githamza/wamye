@@ -3,23 +3,32 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { siteOrigin } from "@/lib/site-url";
 
 /**
- * "approved": a super-admin validated the account. "created": a super-admin
- * provisioned it directly (born active, so it never goes through approval).
- * Same mail either way apart from the headline — both audiences just need
- * the link that lets them set a password and get in.
+ * "approved": a super-admin validated a self-registered account — the user
+ * already chose a password at signup, so the mail just points at /login.
+ * "created": a super-admin provisioned the login directly (no password yet),
+ * so the mail carries a one-time recovery link to set one.
  */
 export type AccountReadyKind = "approved" | "created";
 
-const COPY: Record<AccountReadyKind, { subject: string; headline: string; body: string }> = {
+const COPY: Record<
+  AccountReadyKind,
+  { subject: string; headline: string; body: string; cta: string; footer: string }
+> = {
   approved: {
     subject: "Votre compte Wamye est validé ✓",
     headline: "Compte validé ✓",
-    body: "Bonne nouvelle — votre compte livreur a été validé. Cliquez sur le bouton pour définir votre mot de passe et accéder à votre tableau de bord.",
+    body: "Bonne nouvelle — votre compte livreur a été validé. Connectez-vous avec votre adresse email et votre mot de passe pour accéder à votre tableau de bord.",
+    cta: "Se connecter au tableau de bord",
+    footer:
+      "Mot de passe oublié ? Utilisez « Mot de passe oublié » sur la page de connexion.",
   },
   created: {
     subject: "Votre compte Wamye est prêt",
     headline: "Votre compte est prêt",
     body: "Un compte Wamye a été créé pour vous. Cliquez sur le bouton pour définir votre mot de passe et accéder à votre tableau de bord.",
+    cta: "Définir mon mot de passe",
+    footer:
+      "Ce lien est à usage unique et expire rapidement. S'il ne fonctionne plus, utilisez « Mot de passe oublié » sur la page de connexion.",
   },
 };
 
@@ -28,17 +37,16 @@ function renderHtml(
   actionLink: string,
   navigatorConnectUrl?: string,
 ): string {
-  const { headline, body } = COPY[kind];
-  // Install-first on purpose: the connect page's deep link only works once
-  // the app is on the phone, so the order of the two steps matters.
+  const { headline, body, cta, footer } = COPY[kind];
+  // No install instructions here on purpose: the connect page behind the
+  // link walks the driver through install-then-connect itself.
   const navigatorBlock = navigatorConnectUrl
     ? `
       <hr style="margin:28px 0;border:none;border-top:1px solid #99F6E4">
       <h2 style="margin:0 0 8px;font-size:16px;color:#134E4A">Étape suivante : l'application Navigator</h2>
       <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#333">
-        1) Installez l'application <strong>Navigator</strong> depuis le Play Store ou l'App Store.<br>
-        2) Ouvrez ensuite ce lien <strong>sur votre téléphone</strong> et suivez les étapes
-        pour connecter l'application et recevoir vos courses.
+        Ouvrez ce lien <strong>sur votre téléphone</strong> et laissez-vous guider :
+        c'est dans Navigator que vous recevrez vos courses.
       </p>
       <a href="${navigatorConnectUrl}"
          style="display:inline-block;background:#ffffff;color:#0F766E;border:1px solid #0F766E;text-decoration:none;font-weight:600;font-size:14px;padding:11px 20px;border-radius:10px">
@@ -54,11 +62,10 @@ function renderHtml(
       <p style="margin:0 0 20px;font-size:15px;line-height:1.5;color:#333">${body}</p>
       <a href="${actionLink}"
          style="display:inline-block;background:#0F766E;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:10px">
-        Accéder à mon compte
+        ${cta}
       </a>
       <p style="margin:24px 0 0;font-size:13px;line-height:1.5;color:#777">
-        Ce lien est à usage unique et expire rapidement. S'il ne fonctionne plus,
-        utilisez « Mot de passe oublié » sur la page de connexion.
+        ${footer}
       </p>${navigatorBlock}
     </div>
   </body>
@@ -69,15 +76,17 @@ function renderHtml(
  * Best-effort "your account is ready" email — never throws, the calling
  * approval must stand even when the mail fails.
  *
- * Preferred path: a Brevo transactional send (custom French copy) carrying a
- * Supabase recovery link minted with generateLink — Supabase builds the
- * one-time login URL but sends nothing itself. The link lands on
- * /auth/update-password, where the driver sets a password and ends up
- * signed-in on the dashboard; that suits both admin-provisioned logins (no
- * password yet) and self-registered ones.
+ * Preferred path: a Brevo transactional send (custom French copy). The
+ * button's target depends on the kind: "approved" users chose a password at
+ * signup, so it links straight to /login; "created" logins have no password
+ * yet, so it carries a one-time Supabase recovery link (minted with
+ * generateLink — Supabase builds the URL but sends nothing itself) landing
+ * on /auth/update-password.
  *
  * Without BREVO_API_KEY (or if Brevo/generateLink fails) it falls back to
- * Supabase's own recovery mail — same link, stock "Reset password" template.
+ * Supabase's own recovery mail — stock "Reset password" template. Its link
+ * still signs the user in, so it works for both kinds, just with the wrong
+ * headline for "approved".
  */
 export async function sendAccountReadyEmail(
   email: string,
@@ -96,16 +105,25 @@ export async function sendAccountReadyEmail(
       return await sendSupabaseFallback(email);
     }
 
-    const supabase = createAdminClient();
-    const { data, error } = await supabase.auth.admin.generateLink({
-      type: "recovery",
-      email,
-      options: { redirectTo: `${await siteOrigin()}/auth/update-password` },
-    });
-    const actionLink = data?.properties?.action_link;
-    if (error || !actionLink) {
-      console.error(`generateLink for ${email} failed:`, error?.message);
-      return await sendSupabaseFallback(email);
+    const origin = await siteOrigin();
+    let actionLink: string;
+    if (kind === "approved") {
+      // The user set their password at signup — plain login link, nothing
+      // one-time to mint.
+      actionLink = `${origin}/login`;
+    } else {
+      const supabase = createAdminClient();
+      const { data, error } = await supabase.auth.admin.generateLink({
+        type: "recovery",
+        email,
+        options: { redirectTo: `${origin}/auth/update-password` },
+      });
+      const link = data?.properties?.action_link;
+      if (error || !link) {
+        console.error(`generateLink for ${email} failed:`, error?.message);
+        return await sendSupabaseFallback(email);
+      }
+      actionLink = link;
     }
 
     const res = await fetch("https://api.brevo.com/v3/smtp/email", {
