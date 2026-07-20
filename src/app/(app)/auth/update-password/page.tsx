@@ -28,9 +28,17 @@ function authErrorMessage(code: string | undefined): string {
 }
 
 /**
- * Landing page for password-recovery links. The Supabase browser client
- * auto-consumes the recovery token from the URL (detectSessionInUrl), giving a
- * short-lived session; the user then sets a new password.
+ * Landing page for password-recovery links. Recovery links arrive in two
+ * shapes and both must be handled by hand:
+ *
+ *   - `?code=`            — PKCE callback (resetPasswordForEmail from a
+ *                           browser that holds the code verifier).
+ *   - `#access_token=...` — implicit-flow tokens (links minted server-side
+ *                           with admin.generateLink, e.g. the account-ready
+ *                           email). The browser client is configured for PKCE,
+ *                           and in that mode detectSessionInUrl ignores hash
+ *                           tokens entirely — so we consume them explicitly
+ *                           with setSession.
  */
 export default function UpdatePasswordPage() {
   const router = useRouter();
@@ -43,13 +51,21 @@ export default function UpdatePasswordPage() {
 
   useEffect(() => {
     const supabase = createClient();
-    // Handle the PKCE ?code= variant explicitly; hash tokens are auto-consumed.
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get("code");
+    const code = new URLSearchParams(window.location.search).get("code");
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    const accessToken = hash.get("access_token");
+    const refreshToken = hash.get("refresh_token");
 
     (async () => {
       if (code) {
         await supabase.auth.exchangeCodeForSession(code).catch(() => {});
+      } else if (accessToken && refreshToken) {
+        await supabase.auth
+          .setSession({ access_token: accessToken, refresh_token: refreshToken })
+          .catch(() => {});
+        // Scrub the one-time tokens from the address bar (and from anything
+        // that copies it) once they're in the session cookie.
+        window.history.replaceState(null, "", window.location.pathname);
       }
       const {
         data: { session },
