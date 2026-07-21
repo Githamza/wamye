@@ -15,6 +15,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { NextIntlClientProvider } from "next-intl";
 import { Toaster } from "@/components/ui/sonner";
 import { Clarity } from "@/components/clarity";
+import { Chatwoot } from "@/components/chatwoot";
 import { LocaleCookieSync } from "@/components/locale-cookie-sync";
 import { fontVariables } from "@/app/fonts";
 import { LOCALES, dirOf, hasLocale } from "@/i18n/locales";
@@ -73,6 +74,7 @@ export default async function LocalisedRootLayout({
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
         <Toaster position="bottom-center" />
         <Clarity />
+        <Chatwoot />
       </body>
     </html>
   );

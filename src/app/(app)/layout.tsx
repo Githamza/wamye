@@ -13,6 +13,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { Toaster } from "@/components/ui/sonner";
 import { Clarity } from "@/components/clarity";
+import { Chatwoot } from "@/components/chatwoot";
 import { fontVariables } from "@/app/fonts";
 import { dirOf } from "@/i18n/locales";
 import { viewerLocale } from "@/i18n/viewer-locale";
@@ -60,6 +61,7 @@ export default async function AppRootLayout({
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
         <Toaster position="bottom-center" />
         <Clarity />
+        <Chatwoot />
       </body>
     </html>
   );
