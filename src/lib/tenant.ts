@@ -16,6 +16,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptSecret } from "@/lib/crypto";
 import { DEFAULT_TENANT_CONFIG } from "@/lib/default-config";
 import {
+  defaultFleetbaseApiUrl,
   envFleetbaseContext,
   type FleetbaseContext,
 } from "@/lib/fleetbase";
@@ -152,7 +153,7 @@ export async function getTenantFleetbaseContext(
   }
 
   return {
-    apiUrl: row.fleetbase_api_url ?? "http://91.134.240.158",
+    apiUrl: row.fleetbase_api_url ?? defaultFleetbaseApiUrl(),
     apiKey,
     orderType: row.fleetbase_order_type ?? undefined,
     dispatch: row.fleetbase_dispatch,

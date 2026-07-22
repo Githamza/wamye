@@ -38,6 +38,17 @@ export type FleetbaseContext = {
 };
 
 /**
+ * The instance API URL when a tenant doesn't store its own. Must be HTTPS:
+ * the URL ends up in the Navigator configure deep link, and the published
+ * iOS build (ATS) refuses plain-HTTP hosts with a generic network error.
+ */
+export function defaultFleetbaseApiUrl(): string {
+  return (
+    process.env.FLEETBASE_API_URL ?? "https://api.91.134.240.158.sslip.io"
+  ).replace(/\/+$/, "");
+}
+
+/**
  * Build a context from the legacy single-tenant env vars. Used as a fallback
  * until a tenant's config is stored in the database (see tenant.ts), which
  * keeps the app working exactly as before during the migration.
@@ -47,7 +58,7 @@ export function envFleetbaseContext(): FleetbaseContext | null {
   if (!apiKey) return null;
   const adhocDistanceRaw = process.env.FLEETBASE_ADHOC_DISTANCE ?? "";
   return {
-    apiUrl: (process.env.FLEETBASE_API_URL ?? "http://91.134.240.158").replace(/\/+$/, ""),
+    apiUrl: defaultFleetbaseApiUrl(),
     apiKey,
     orderType: process.env.FLEETBASE_ORDER_TYPE || undefined,
     dispatch: (process.env.FLEETBASE_DISPATCH ?? "true").toLowerCase() !== "false",
