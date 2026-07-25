@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createFleetbaseClient, FleetbaseError } from "@/lib/fleetbase";
+import { sendNewOrderAlertEmails } from "@/lib/order-alert-email";
 import {
   getTenantIdBySlug,
   recordOrderMirror,
@@ -62,6 +63,10 @@ export async function POST(request: Request) {
       const tenantId = await getTenantIdBySlug(slug);
       if (tenantId) await recordOrderMirror(tenantId, body, created);
     }
+
+    // Best-effort driver alert: this instance has no working push channel for
+    // Navigator, so drivers are told by email that a course is up for grabs.
+    await sendNewOrderAlertEmails(ctx, body);
 
     return NextResponse.json(created, { status: 201 });
   } catch (err) {

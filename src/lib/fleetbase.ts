@@ -103,9 +103,24 @@ type FleetbaseDriver = {
   name?: string | null;
   email?: string | null;
   phone?: string | null;
+  online?: boolean | null;
   /** The company the API key is bound to — drivers are scoped by key. */
   company?: string | null;
 };
+
+/** The driver fields the app cares about (order alert emails, team views). */
+export type DriverSummary = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  online: boolean;
+};
+
+function parseDriverList(body: unknown): FleetbaseDriver[] {
+  if (Array.isArray(body)) return body;
+  const b = body as { drivers?: FleetbaseDriver[]; data?: FleetbaseDriver[] };
+  return b.drivers ?? b.data ?? [];
+}
 
 /** FleetOps reports failures as {error, errors[]} on any endpoint. */
 type FleetbaseErrorBody = { error?: string; errors?: string[] };
@@ -326,19 +341,27 @@ export function createFleetbaseClient(ctx: FleetbaseContext) {
         ctx,
         `/v1/drivers?email=${encodeURIComponent(email)}&limit=100`,
       );
-      const list = Array.isArray(body)
-        ? body
-        : ((body as { drivers?: FleetbaseDriver[]; data?: FleetbaseDriver[] })
-            .drivers ??
-          (body as { data?: FleetbaseDriver[] }).data ??
-          []);
+      const list = parseDriverList(body);
 
       const wanted = email.trim().toLowerCase();
-      const match = (list as FleetbaseDriver[]).find(
+      const match = list.find(
         (d) => (d.email ?? "").trim().toLowerCase() === wanted,
       );
       const id = match?.public_id ?? match?.id;
       return id ? { id } : null;
+    },
+
+    /** Every driver in this tenant's company (order alert emails). */
+    async listDrivers(): Promise<DriverSummary[]> {
+      const body = await request<unknown>(ctx, "/v1/drivers?limit=200");
+      return parseDriverList(body)
+        .map((d) => ({
+          id: d.public_id ?? d.id ?? "",
+          name: d.name ?? null,
+          email: d.email ?? null,
+          online: d.online === true,
+        }))
+        .filter((d) => d.id);
     },
 
     /** Cheap authenticated GET to validate the credentials ("Test connection"). */
