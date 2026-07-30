@@ -12,6 +12,7 @@ type TenantRow = {
   status: string;
   is_active: boolean;
   created_at: string;
+  branding: { instagram?: string } | null;
 };
 
 /** Badge colours only — the label itself comes from @/lib/labels, which the
@@ -34,7 +35,7 @@ export default async function AdminHomePage(props: {
   const supabase = createAdminClient();
   const { data } = await supabase
     .from("tenants")
-    .select("id, slug, name, status, is_active, created_at")
+    .select("id, slug, name, status, is_active, created_at, branding")
     .order("created_at", { ascending: false });
   const tenants = (data ?? []) as TenantRow[];
 
@@ -80,6 +81,9 @@ export default async function AdminHomePage(props: {
                   </div>
                   <div className="flex items-center gap-3 text-[12px] text-stone-muted">
                     <span>/t/{t.slug}</span>
+                    {t.branding?.instagram && (
+                      <span className="text-stone-muted2">@{t.branding.instagram}</span>
+                    )}
                     <span className={connected.has(t.id) ? "text-success" : "text-stone-faint"}>
                       {connected.has(t.id) ? "Fleetbase connecté" : "Fleetbase non connecté"}
                     </span>

@@ -20,6 +20,12 @@ export async function signupDriver(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const supportPhone = String(formData.get("supportPhone") ?? "").trim();
   const areaLabel = String(formData.get("areaLabel") ?? "").trim();
+  // Accept "@handle", a bare handle, or a full profile URL — keep just the handle.
+  const instagram = String(formData.get("instagram") ?? "")
+    .trim()
+    .replace(/^https?:\/\/(www\.)?instagram\.com\//i, "")
+    .replace(/^@/, "")
+    .replace(/\/.*$/, "");
 
   if (!name || !email || password.length < 8) {
     redirect("/signup?error=missing");
@@ -51,6 +57,7 @@ export async function signupDriver(formData: FormData) {
         logoEmoji: "🛵",
         areaLabel: areaLabel || undefined,
         supportPhone: supportPhone || undefined,
+        instagram: instagram || undefined,
       },
       zone: { centerLat: 33.808, centerLng: 10.995, radiusKm: 15 },
       fee_config: { baseFee: 2.5, feePerKm: 0.6, minFee: 3 },

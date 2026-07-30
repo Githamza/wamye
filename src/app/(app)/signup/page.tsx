@@ -68,6 +68,9 @@ export default async function SignupPage(props: {
         <Field label="Zone desservie (optionnel)">
           <input name="areaLabel" placeholder="Sfax centre" className={input} />
         </Field>
+        <Field label="Compte Instagram professionnel (optionnel)">
+          <input name="instagram" placeholder="@votre_compte" className={input} />
+        </Field>
 
         <button
           type="submit"
