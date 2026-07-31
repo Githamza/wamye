@@ -52,6 +52,27 @@ function renderHtml(input: CreateOrderInput): string {
 </html>`;
 }
 
+// A text/plain part must accompany the HTML — HTML-only mail (plus Brevo's
+// tracking pixel counting as an image) scores MIME_HTML_ONLY and
+// HTML_IMAGE_ONLY with spam filters.
+function renderText(input: CreateOrderInput): string {
+  const facts = [
+    `Retrait : ${input.commerceName}`,
+    input.fee != null && `Frais de livraison : ${input.fee} DT`,
+    input.distanceKm != null && `Distance : ~${input.distanceKm} km`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return `Nouvelle course disponible
+
+${facts}
+
+Ouvrez l'application Navigator sur votre téléphone pour voir le détail et accepter la course — premier arrivé, premier servi.
+
+Si rien ne s'affiche, tirez la liste des commandes vers le bas pour la rafraîchir.`;
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -91,6 +112,7 @@ export async function sendNewOrderAlertEmails(
     }
 
     const html = renderHtml(input);
+    const text = renderText(input);
     const subject = `🛵 Nouvelle course — ${input.commerceName}`;
     const sender = {
       name: "Wamye",
@@ -111,6 +133,7 @@ export async function sendNewOrderAlertEmails(
             to: [{ email }],
             subject,
             htmlContent: html,
+            textContent: text,
           }),
         });
         if (!res.ok) {

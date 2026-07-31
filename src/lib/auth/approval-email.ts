@@ -32,6 +32,33 @@ const COPY: Record<
   },
 };
 
+// Every Brevo send must carry a text/plain part alongside the HTML: with only
+// a text/html MIME part, spam filters score MIME_HTML_ONLY and — because the
+// open-tracking pixel counts as an image — HTML_IMAGE_ONLY on top.
+function renderText(
+  kind: AccountReadyKind,
+  actionLink: string,
+  navigatorConnectUrl?: string,
+): string {
+  const { headline, body, cta, footer } = COPY[kind];
+  const navigatorBlock = navigatorConnectUrl
+    ? `
+
+Étape suivante : l'application Navigator
+Ouvrez ce lien sur votre téléphone et laissez-vous guider — c'est dans Navigator que vous recevrez vos courses :
+${navigatorConnectUrl}`
+    : "";
+  return `${headline}
+
+${body}
+
+${cta} : ${actionLink}
+
+${footer}${navigatorBlock}
+
+Vous recevez cet email car un compte Wamye est associé à cette adresse.`;
+}
+
 function renderHtml(
   kind: AccountReadyKind,
   actionLink: string,
@@ -67,6 +94,9 @@ function renderHtml(
       <p style="margin:24px 0 0;font-size:13px;line-height:1.5;color:#777">
         ${footer}
       </p>${navigatorBlock}
+      <p style="margin:24px 0 0;font-size:12px;line-height:1.5;color:#999">
+        Vous recevez cet email car un compte Wamye est associé à cette adresse.
+      </p>
     </div>
   </body>
 </html>`;
@@ -141,6 +171,7 @@ export async function sendAccountReadyEmail(
         to: [{ email }],
         subject: COPY[kind].subject,
         htmlContent: renderHtml(kind, actionLink, navigatorConnectUrl),
+        textContent: renderText(kind, actionLink, navigatorConnectUrl),
       }),
     });
     if (!res.ok) {
@@ -149,6 +180,91 @@ export async function sendAccountReadyEmail(
     }
   } catch (err) {
     console.error(`approval email to ${email} failed:`, err);
+  }
+}
+
+/**
+ * Best-effort "merci pour votre inscription" acknowledgement, sent right after
+ * public self-registration. The account exists but sits behind super-admin
+ * approval, so the mail sets expectations (48–72h) instead of linking anywhere.
+ * Never throws — signup must succeed even when the mail fails — and has no
+ * Supabase fallback: a stock recovery mail would be misleading here.
+ */
+export async function sendSignupReceivedEmail(
+  email: string,
+  name?: string,
+): Promise<void> {
+  try {
+    const apiKey = process.env.BREVO_API_KEY;
+    if (!apiKey) {
+      console.error("[signup-received] BREVO_API_KEY missing — mail skipped");
+      return;
+    }
+
+    const greeting = name ? `Bonjour ${name},` : "Bonjour,";
+    const html = `<!doctype html>
+<html lang="fr">
+  <body style="margin:0;padding:24px;background:#F0FDFA;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif">
+    <div style="max-width:440px;margin:0 auto;background:#ffffff;border:1px solid #99F6E4;border-radius:12px;padding:32px 28px">
+      <div style="font-size:28px">🛵</div>
+      <h1 style="margin:12px 0 8px;font-size:20px;color:#134E4A">Merci pour votre inscription !</h1>
+      <p style="margin:0 0 16px;font-size:15px;line-height:1.5;color:#333">${greeting}</p>
+      <p style="margin:0 0 16px;font-size:15px;line-height:1.5;color:#333">
+        Votre compte Wamye a bien été créé et est en cours de validation par notre équipe.
+      </p>
+      <p style="margin:0 0 20px;font-size:15px;line-height:1.5;color:#333">
+        Nous revenons vers vous dès que votre compte est validé —
+        cela peut prendre de <strong>48 à 72&nbsp;heures</strong>.
+      </p>
+      <p style="margin:24px 0 0;font-size:13px;line-height:1.5;color:#777">
+        Vous recevrez un email de confirmation dès la validation. Aucune action n'est nécessaire de votre part d'ici là.
+      </p>
+      <p style="margin:24px 0 0;font-size:12px;line-height:1.5;color:#999">
+        Vous recevez cet email car une inscription Wamye a été effectuée avec cette adresse.
+      </p>
+    </div>
+  </body>
+</html>`;
+
+    const text = `Merci pour votre inscription !
+
+${greeting}
+
+Votre compte Wamye a bien été créé et est en cours de validation par notre équipe.
+
+Nous revenons vers vous dès que votre compte est validé — cela peut prendre de 48 à 72 heures.
+
+Vous recevrez un email de confirmation dès la validation. Aucune action n'est nécessaire de votre part d'ici là.
+
+Vous recevez cet email car une inscription Wamye a été effectuée avec cette adresse.`;
+
+    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "api-key": apiKey,
+        "content-type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        sender: {
+          name: "Wamye",
+          email: process.env.BREVO_SENDER_EMAIL ?? "hamza.haddad.dev@gmail.com",
+        },
+        to: [{ email }],
+        subject: "Merci pour votre inscription — compte en cours de validation",
+        htmlContent: html,
+        textContent: text,
+      }),
+    });
+    if (!res.ok) {
+      console.error(
+        `[signup-received] Brevo send to ${email} failed:`,
+        res.status,
+        await res.text(),
+      );
+    }
+  } catch (err) {
+    console.error(`[signup-received] email to ${email} failed:`, err);
   }
 }
 

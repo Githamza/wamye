@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { slugify } from "@/lib/slug";
+import { sendSignupReceivedEmail } from "@/lib/auth/approval-email";
 
 /**
  * Public self-registration for a driver (no auth required). Creates a PENDING
@@ -97,7 +98,11 @@ export async function signupDriver(formData: FormData) {
     phone: supportPhone || null,
   });
 
-  // 4. Sign the new driver in (sets session cookies) so they land on /pending.
+  // 4. Thank-you / "validation under way, 48–72h" acknowledgement. Best-effort:
+  //    signup goes through even if the mail doesn't.
+  await sendSignupReceivedEmail(email, name);
+
+  // 5. Sign the new driver in (sets session cookies) so they land on /pending.
   const session = await createClient();
   await session.auth.signInWithPassword({ email, password });
 
