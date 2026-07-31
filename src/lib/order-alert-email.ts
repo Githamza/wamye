@@ -116,7 +116,9 @@ export async function sendNewOrderAlertEmails(
     const subject = `🛵 Nouvelle course — ${input.commerceName}`;
     const sender = {
       name: "Wamye",
-      email: process.env.BREVO_SENDER_EMAIL ?? "hamza.haddad.dev@gmail.com",
+      // Fallback sur le domaine authentifié — un expéditeur non validé
+      // (ex. gmail) est accepté par l'API puis rejeté à l'envoi.
+      email: process.env.BREVO_SENDER_EMAIL ?? "admin.wamye@mylabs.live",
     };
 
     const results = await Promise.allSettled(

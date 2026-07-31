@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isValidPhone, normalizePhone } from "@/lib/phone";
+import { formatPhone, isValidPhone, normalizePhone } from "@/lib/phone";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +49,64 @@ function parseBody(b: unknown): Body | null {
   };
 }
 
+const NOTIFY_EMAIL = "hamza.haddad.dev@gmail.com";
+
+const SITUATION_LABELS: Record<Body["situation"], string> = {
+  deja_livreur: "Travaille déjà comme livreur",
+  bientot: "Veut se lancer bientôt",
+};
+
+const EXPERIENCE_LABELS: Record<NonNullable<Body["experience"]>, string> = {
+  moins_2ans: "moins de 2 ans",
+  plus_2ans: "plus de 2 ans",
+};
+
+// Best-effort : une réponse au sondage ne doit jamais échouer parce que
+// l'alerte email a échoué — on logge et on avale toute erreur.
+async function sendResponseAlert(body: Body): Promise<void> {
+  try {
+    const apiKey = process.env.BREVO_API_KEY;
+    if (!apiKey) {
+      console.error("[survey] BREVO_API_KEY missing — no alert sent");
+      return;
+    }
+
+    const lines = [
+      `Situation : ${SITUATION_LABELS[body.situation]}`,
+      body.experience && `Expérience : ${EXPERIENCE_LABELS[body.experience]}`,
+      `Crée du contenu : ${body.creeContenu ? "oui" : "non"}`,
+      body.compteSocial && `Compte : ${body.compteSocial}`,
+      body.zones && `Zone(s) : ${body.zones}`,
+      `Téléphone : ${formatPhone(body.phone)}`,
+    ].filter(Boolean) as string[];
+
+    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "api-key": apiKey,
+        "content-type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        sender: {
+          name: "Wamye Sondage",
+          // Fallback sur le domaine authentifié — un expéditeur non validé
+          // (ex. gmail) est accepté par l'API puis rejeté à l'envoi.
+          email: process.env.BREVO_SENDER_EMAIL ?? "admin.wamye@mylabs.live",
+        },
+        to: [{ email: NOTIFY_EMAIL }],
+        subject: `📋 Sondage — nouvelle réponse (${formatPhone(body.phone)})`,
+        textContent: `Nouvelle réponse au sondage livreurs :\n\n${lines.join("\n")}`,
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`${res.status} ${await res.text()}`);
+    }
+  } catch (err) {
+    console.error("[survey] alert email failed:", (err as Error).message);
+  }
+}
+
 export async function POST(request: Request) {
   let raw: unknown;
   try {
@@ -80,6 +138,10 @@ export async function POST(request: Request) {
     console.error("[survey] insert failed:", error.message);
     return NextResponse.json({ error: "insert" }, { status: 500 });
   }
+
+  // Attendu (pas de fire-and-forget) : la réponse HTTP ne part qu'une fois
+  // l'alerte tentée, sinon le runtime peut couper la requête avant l'envoi.
+  await sendResponseAlert(body);
 
   return NextResponse.json({ ok: true });
 }
