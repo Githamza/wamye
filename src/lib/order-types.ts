@@ -24,6 +24,7 @@ export type ApiErrorCode =
   | "no-route"
   | "routing-failed"
   | "incomplete-order"
+  | "commerce-not-located"
   | "orders-unavailable"
   | "create-failed"
   | "tracking-unavailable";
@@ -59,8 +60,17 @@ export type CreateOrderInput = {
   order: string;
   commerceName: string;
   commerceAddr?: string | null;
-  /** Pickup coordinates, when the commerce came from Google Places. */
-  commercePosition?: LatLng | null;
+  /**
+   * Pickup coordinates. Required, and never inferred server-side.
+   *
+   * Fleetbase geocodes a pickup that arrives without a location, using the
+   * street string alone. When that string is just a shop name it lands
+   * anywhere on earth — we had live orders whose pickup resolved to Tennessee
+   * — and the order is then invisible to every driver, since adhoc matching is
+   * a radius around the pickup point. So the browser must send a resolved
+   * Google Place, or the order is refused.
+   */
+  commercePosition: LatLng;
   repere?: string;
   /** 8 local digits, e.g. "22483921". */
   phone: string;

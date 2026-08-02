@@ -207,14 +207,13 @@ function buildPayload(
     street1: input.commerceAddr?.trim() || input.commerceName,
     country: "TN",
   };
-  // Exact pickup coordinates, when the commerce was picked from Google Places.
-  // Without this the driver only gets a street string to interpret.
-  if (input.commercePosition) {
-    pickup.location = {
-      type: "Point",
-      coordinates: [input.commercePosition.lng, input.commercePosition.lat],
-    };
-  }
+  // Exact pickup coordinates, always. Never let Fleetbase geocode this itself:
+  // it would fall back to the street string, and a shop name alone geocodes
+  // anywhere. The route rejects a body without them before we get here.
+  pickup.location = {
+    type: "Point",
+    coordinates: [input.commercePosition.lng, input.commercePosition.lat],
+  };
 
   const dropoff: Record<string, unknown> = {
     name: input.prenom?.trim() || "Client",

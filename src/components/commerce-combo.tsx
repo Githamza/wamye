@@ -18,10 +18,6 @@ type Props = {
   position?: LatLng | null;
   /** ISO region code (e.g. "tn") from the tenant's phoneCountry. */
   regionCode?: string;
-  /** free-text mode ("Introuvable ? Décrivez-le") */
-  describe: boolean;
-  describeValue: string;
-  onDescribeChange: (v: string) => void;
 };
 
 /** A row in the dropdown — always a Google Places suggestion. */
@@ -37,28 +33,20 @@ type Row = {
 
 const DEBOUNCE_MS = 250;
 
-export function CommerceCombo({
-  selected,
-  onSelect,
-  zone,
-  position,
-  regionCode,
-  describe,
-  describeValue,
-  onDescribeChange,
-}: Props) {
+export function CommerceCombo({ selected, onSelect, zone, position, regionCode }: Props) {
   const t = useTranslations("Commerce");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [placeRows, setPlaceRows] = useState<Row[]>([]);
   const [searching, setSearching] = useState(false);
   const [resolving, setResolving] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   // Guards against a slow early request overwriting a newer one's results.
   const seq = useRef(0);
 
   // Places is the only source of shops. Without a browser key there is nothing
-  // to search: the dropdown stays empty and "describe it" is the way through.
+  // to search: the dropdown stays empty and no order can be placed.
   const places = isMapsEnabled();
   const q = query.trim();
 
@@ -98,11 +86,12 @@ export function CommerceCombo({
 
   async function pick(row: Row) {
     setOpen(false);
-    setQuery("");
+    setFailed(false);
 
     setResolving(true);
     try {
       const place = await resolvePlace(row.suggestion);
+      setQuery("");
       onSelect({
         id: place.placeId,
         name: place.name,
@@ -111,29 +100,15 @@ export function CommerceCombo({
         lng: place.lng,
       });
     } catch (err) {
-      // Keep the commerce, lose only the coordinates: the order still works,
-      // it just falls back to the straight-line fee estimate.
+      // No coordinates, no commerce. A pickup without a location is geocoded
+      // by Fleetbase from the shop name alone and lands anywhere on earth,
+      // putting the order out of range of every driver — an order nobody can
+      // ever take is worse than asking the customer to choose again.
       console.error("[places] resolve failed:", err);
-      onSelect({ id: row.id, name: row.name, addr: row.addr });
+      setFailed(true);
     } finally {
       setResolving(false);
     }
-  }
-
-  // Free-text "describe it" mode
-  if (describe) {
-    return (
-      <div className="relative">
-        <Store className="pointer-events-none absolute start-3.5 top-1/2 size-5 -translate-y-1/2 text-stone-muted" />
-        <Input
-          value={describeValue}
-          onChange={(e) => onDescribeChange(e.target.value)}
-          placeholder={t("describePlaceholder")}
-          aria-label={t("describeAria")}
-          className="h-12 rounded-[10px] ps-[42px] text-[15px]"
-        />
-      </div>
-    );
   }
 
   // Selected → chip-card
@@ -171,6 +146,7 @@ export function CommerceCombo({
           onChange={(e) => {
             setQuery(e.target.value);
             setOpen(true);
+            setFailed(false);
           }}
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 120)}
@@ -219,6 +195,12 @@ export function CommerceCombo({
             ))
           )}
         </div>
+      )}
+
+      {failed && !showDropdown && (
+        <p role="status" className="mt-1.5 text-[13px] text-danger-ink">
+          {t("resolveFailed")}
+        </p>
       )}
     </div>
   );

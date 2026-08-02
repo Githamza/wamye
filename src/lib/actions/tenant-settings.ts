@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireOwner } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { syncCompanyAdhocDistance } from "@/lib/tenant";
 
 function num(v: FormDataEntryValue | null): number | null {
   const n = Number(String(v ?? "").trim());
@@ -48,6 +49,11 @@ export async function updateGeneral(formData: FormData) {
     .from("tenants")
     .update({ branding, zone, fee_config: feeConfig, hours, name: branding.name })
     .eq("id", profile.tenantId);
+
+  // Keep the Fleetbase company's driver-visibility radius in step with the zone
+  // the owner just drew. Best-effort: a Fleetbase hiccup must not make the
+  // settings save look like it failed — the zone itself is already persisted.
+  await syncCompanyAdhocDistance(profile.tenantId, zone.radiusKm);
 
   revalidatePath("/dashboard/settings");
   revalidatePath(`/t/${profile.tenantId}`);

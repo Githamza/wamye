@@ -20,6 +20,12 @@ import {
   envFleetbaseContext,
   type FleetbaseContext,
 } from "@/lib/fleetbase";
+import {
+  adhocDistanceForZone,
+  getCompanyIdForKey,
+  isFleetbaseAdminConfigured,
+  setCompanyAdhocDistance,
+} from "@/lib/fleetbase-admin";
 import type { TenantPublicConfig } from "@/lib/config-types";
 import type { CreateOrderInput, CreatedOrder } from "@/lib/order-types";
 
@@ -160,6 +166,58 @@ export async function getTenantFleetbaseContext(
     adhoc: row.fleetbase_adhoc,
     adhocDistance: row.fleetbase_adhoc_distance ?? undefined,
   };
+}
+
+/**
+ * Align the tenant's Fleetbase company with a delivery-zone radius, so its
+ * drivers actually see the orders inside that zone.
+ *
+ * Best-effort by design, and every early return is a legitimate state: no
+ * stored key yet (the company is provisioned by hand, after signup), no admin
+ * credentials configured (see fleetbase-admin.ts — the public API cannot write
+ * this), or Fleetbase being unreachable. None of those should fail whatever
+ * operation asked for the sync; the zone is the source of truth either way and
+ * the next save retries.
+ *
+ * Returns the radius now in force, or null when nothing was written.
+ */
+export async function syncCompanyAdhocDistance(
+  tenantId: string,
+  radiusKm: number,
+): Promise<number | null> {
+  if (!isSupabaseConfigured() || !isFleetbaseAdminConfigured()) return null;
+
+  try {
+    const supabase = createAdminClient();
+    const { data: row } = await supabase
+      .from("tenants")
+      .select("fleetbase_api_url")
+      .eq("id", tenantId)
+      .maybeSingle();
+    const { data: secret } = await supabase
+      .from("tenant_secrets")
+      .select("fleetbase_api_key_encrypted")
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+
+    if (!secret?.fleetbase_api_key_encrypted) return null;
+
+    const apiUrl = (row?.fleetbase_api_url as string | null) ?? defaultFleetbaseApiUrl();
+    const apiKey = decryptSecret(secret.fleetbase_api_key_encrypted as string);
+
+    // The tenant→company mapping lives in the key itself, not in our schema.
+    const companyId = await getCompanyIdForKey(apiKey, apiUrl);
+    if (!companyId) return null;
+
+    return await setCompanyAdhocDistance(
+      companyId,
+      adhocDistanceForZone(radiusKm),
+      apiUrl,
+    );
+  } catch (err) {
+    console.error("[tenant] adhoc distance sync failed:", (err as Error).message);
+    return null;
+  }
 }
 
 /**

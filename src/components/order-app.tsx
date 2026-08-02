@@ -64,8 +64,6 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
   // ---- form state ----
   const [order, setOrder] = useState("");
   const [commerce, setCommerce] = useState<Commerce | null>(null);
-  const [describe, setDescribe] = useState(false);
-  const [describeText, setDescribeText] = useState("");
   const [repere, setRepere] = useState("");
   const [phone, setPhone] = useState("");
   const [phoneFocus, setPhoneFocus] = useState(false);
@@ -112,9 +110,7 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
   }, [config.hours, config.slug]);
 
   // Refine the straight-line estimate into a real road-distance fee, once both
-  // ends of the trip are known. Needs a commerce with coordinates, which only
-  // comes from Google Places — a commerce from the fallback list, or one typed
-  // free-hand, keeps the estimate.
+  // ends of the trip are known.
   const commerceLat = commerce?.lat;
   const commerceLng = commerce?.lng;
   const slug = config.slug;
@@ -163,8 +159,10 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
   }, [commerceLat, commerceLng, position, deliveryStatus, slug]);
 
   // ---- derived ----
-  const commerceLabel = describe ? describeText.trim() : commerce?.name ?? "";
-  const hasCommerce = commerceLabel !== "";
+  // A commerce only exists once it carries coordinates (the combo refuses to
+  // hand one over otherwise), so `commerce !== null` is the whole check.
+  const commerceLabel = commerce?.name ?? "";
+  const hasCommerce = commerce !== null;
   const phoneValid = isValidPhone(phone);
 
   const blocked = useMemo<BlockedReason | null>(() => {
@@ -259,10 +257,7 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
           order: order.trim(),
           commerceName: commerceLabel,
           commerceAddr: commerce?.addr ?? null,
-          commercePosition:
-            commerce?.lat !== undefined && commerce?.lng !== undefined
-              ? { lat: commerce.lat, lng: commerce.lng }
-              : null,
+          commercePosition: commerce && { lat: commerce.lat, lng: commerce.lng },
           repere: repere.trim(),
           phone,
           prenom: prenom.trim(),
@@ -286,7 +281,7 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
       setOrderId(created.id);
       saveLastOrder(config.slug, {
         order: order.trim(),
-        commerceId: commerce?.id ?? null,
+        commerce,
         commerceName: commerceLabel,
         phone,
         prenom,
@@ -304,16 +299,12 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
   function handleRecommander() {
     if (!returning) return;
     setOrder(returning.order);
-    if (returning.commerceId) {
-      const c = { id: returning.commerceId, name: returning.commerceName, addr: "" };
-      setCommerce(c as Commerce);
-      setDescribe(false);
-    } else {
-      setDescribe(true);
-      setDescribeText(returning.commerceName);
-    }
+    // Entries saved before commerces carried coordinates can't be reordered
+    // as-is; the rest of the form still prefills and the customer just picks
+    // the shop again.
+    if (returning.commerce) setCommerce(returning.commerce);
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: "smooth" });
-    toast(t("reorderToast"));
+    toast(t(returning.commerce ? "reorderToast" : "reorderToastNoCommerce"));
   }
 
   async function handleInstall() {
@@ -427,20 +418,7 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
                   zone={config.zone}
                   position={position}
                   regionCode={config.phoneCountry.toLowerCase()}
-                  describe={describe}
-                  describeValue={describeText}
-                  onDescribeChange={setDescribeText}
                 />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDescribe((d) => !d);
-                    setCommerce(null);
-                  }}
-                  className="self-start text-[13px] text-brand underline underline-offset-[3px]"
-                >
-                  {describe ? t("listToggle") : t("describeToggle")}
-                </button>
               </section>
 
               {/* LIVRAISON */}

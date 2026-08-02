@@ -11,7 +11,7 @@ import type { CreateOrderInput } from "@/lib/order-types";
 // Order creation must always hit Fleetbase at request time.
 export const dynamic = "force-dynamic";
 
-function isValidBody(b: unknown): b is CreateOrderInput {
+function isValidBody(b: unknown): b is Omit<CreateOrderInput, "commercePosition"> {
   if (!b || typeof b !== "object") return false;
   const o = b as Record<string, unknown>;
   return (
@@ -21,6 +21,31 @@ function isValidBody(b: unknown): b is CreateOrderInput {
     o.commerceName.trim() !== "" &&
     typeof o.phone === "string" &&
     /^[2459]\d{7}$/.test(o.phone)
+  );
+}
+
+/**
+ * A pickup is only usable with real coordinates — see the note on
+ * CreateOrderInput.commercePosition for what happens without them. Checked
+ * separately from isValidBody so the customer gets a cause they can act on
+ * ("choose the shop from the list") rather than a generic "incomplete order".
+ */
+function hasPickupCoordinates(b: unknown): b is CreateOrderInput {
+  const p = (b as Record<string, unknown>).commercePosition;
+  if (!p || typeof p !== "object") return false;
+  const { lat, lng } = p as Record<string, unknown>;
+  return (
+    typeof lat === "number" &&
+    typeof lng === "number" &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180 &&
+    // Fleetbase treats the null island as "no location" and excludes such
+    // rows from adhoc matching outright.
+    !(lat === 0 && lng === 0)
   );
 }
 
@@ -35,6 +60,13 @@ export async function POST(request: Request) {
   if (!isValidBody(body)) {
     return NextResponse.json(
       { error: "incomplete-order" },
+      { status: 400 },
+    );
+  }
+
+  if (!hasPickupCoordinates(body)) {
+    return NextResponse.json(
+      { error: "commerce-not-located" },
       { status: 400 },
     );
   }

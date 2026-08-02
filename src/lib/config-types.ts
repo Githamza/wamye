@@ -45,12 +45,17 @@ export type Branding = {
  * are absent when resolving the place failed; those orders fall back to the
  * straight-line fee.
  */
+/**
+ * A pickup commerce. Coordinates are mandatory: they only ever come from a
+ * resolved Google Place, and an order without them is undeliverable — see the
+ * note on CreateOrderInput.commercePosition.
+ */
 export type Commerce = {
   id: string;
   name: string;
   addr: string;
-  lat?: number;
-  lng?: number;
+  lat: number;
+  lng: number;
 };
 
 /**

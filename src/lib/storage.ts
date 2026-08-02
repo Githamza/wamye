@@ -4,12 +4,20 @@
 // browser never share a returning-customer prefill or course sequence.
 // ============================================================
 
+import type { Commerce } from "@/lib/config-types";
+
 export type LastOrder = {
   order: string;
-  commerceId: string | null;
   commerceName: string;
   phone: string;
   prenom: string;
+  /**
+   * The full commerce, coordinates included. Older entries stored only an id
+   * and a name, which is not enough to reorder from — a pickup without
+   * coordinates is undeliverable (see CreateOrderInput.commercePosition), so
+   * those entries prefill everything except the commerce.
+   */
+  commerce?: Commerce | null;
 };
 
 function lastKey(slug: string): string {

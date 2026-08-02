@@ -8,7 +8,7 @@ import { syncDriverToFleetbase } from "@/lib/actions/team";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { encryptSecret } from "@/lib/crypto";
 import { slugify } from "@/lib/slug";
-import { getTenantFleetbaseContext } from "@/lib/tenant";
+import { getTenantFleetbaseContext, syncCompanyAdhocDistance } from "@/lib/tenant";
 import { navigatorConnectUrl } from "@/lib/navigator-link";
 import {
   createFleetbaseClient,
@@ -207,6 +207,18 @@ export async function updateTenantFleetbase(formData: FormData) {
       fleetbase_api_key_encrypted: encryptSecret(newKey),
       updated_at: new Date().toISOString(),
     });
+
+    // First moment the company is reachable: a freshly created Fleetbase
+    // company has no adhoc option at all, which means its drivers see nothing
+    // beyond 6 km of a pickup. Align it with the zone now rather than waiting
+    // for the owner to happen to edit their zone.
+    const { data: t } = await supabase
+      .from("tenants")
+      .select("zone")
+      .eq("id", id)
+      .maybeSingle();
+    const radiusKm = (t?.zone as { radiusKm?: number } | null)?.radiusKm;
+    if (typeof radiusKm === "number") await syncCompanyAdhocDistance(id, radiusKm);
   }
 
   revalidatePath(`/admin/tenants/${id}`);

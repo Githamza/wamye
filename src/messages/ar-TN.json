@@ -80,8 +80,6 @@
     "sectionOrder": "طلبك",
     "orderPlaceholder": "مثلا: 2 مقلوب تن + 1 كوكا بارد",
     "orderAria": "طلبك",
-    "describeToggle": "ما لقيتوش؟ وصّفهولنا",
-    "listToggle": "اختار من القائمة",
     "sectionDelivery": "التوصيل",
     "sectionContact": "معلوماتك",
     "phoneAria": "الهاتف",
@@ -93,7 +91,7 @@
     "submitting": "قاعد يتبعث…",
     "blockedOutzone": "العنوان برّا من منطقة التوصيل",
     "blockedOrder": "ناقصك: طلبك",
-    "blockedCommerce": "ناقصك: المحلّ",
+    "blockedCommerce": "ناقص: محلّ مختار من القائمة",
     "blockedPosition": "ناقصك: موقعك",
     "blockedPhone": "ناقصك: رقمك",
     "sendFailed": "ما تبعثش — عاود جرّب",
@@ -101,18 +99,18 @@
     "retry": "عاود جرّب",
     "supportWhatsApp": "أكتبلنا على واتساب على {phone}",
     "supportFallback": "اتصل بالدعم",
-    "installHint": "قائمة المتصفّح ← «زيد للشاشة الرئيسية»"
+    "installHint": "قائمة المتصفّح ← «زيد للشاشة الرئيسية»",
+    "reorderToastNoCommerce": "الطلب تعمّر — اختار المحلّ وزيد موقعك"
   },
   "Commerce": {
-    "describePlaceholder": "وصّف المحلّ (الإسم، الشارع، علامة…)",
-    "describeAria": "وصّف المحلّ",
     "removeAria": "نحّي المحلّ",
     "searchPlaceholder": "مطعم، عطّار، صيدلية…",
     "searchAria": "المحلّ",
     "searching": "قاعد يلوّج…",
-    "noResults": "ما فماش نتيجة — جرّب «وصّفهولنا»",
+    "noResults": "ما فماش نتيجة — شوف الكتبة ولا جرّب إسم الشارع",
     "meters": "{value} متر",
-    "kilometers": "{value} كم"
+    "kilometers": "{value} كم",
+    "resolveFailed": "ما نجّمناش نلقاو الموقع متاع المحلّ هذا. اختار محلّ آخر من القائمة."
   },
   "Delivery": {
     "useLocation": "استعمل موقعي",
@@ -309,6 +307,7 @@
     "orders-unavailable": "خدمة الطلب مش مفعّلة.",
     "create-failed": "الطلب ما تبعثش. عاود جرّب.",
     "tracking-unavailable": "التتبّع مش متاح.",
-    "unknown": "ما تبعثش — عاود جرّب"
+    "unknown": "ما تبعثش — عاود جرّب",
+    "commerce-not-located": "موقع المحلّ ماهوش معروف. اختارو من قائمة الاقتراحات."
   }
 }
