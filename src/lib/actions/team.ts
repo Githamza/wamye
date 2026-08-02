@@ -302,7 +302,12 @@ export async function approveSubDriver(formData: FormData) {
   }
 
   revalidatePath("/dashboard/team");
-  if (tenantId) revalidatePath(`/admin/tenants/${tenantId}`);
+  // Only ever submitted from the admin tenant page, which is where the
+  // confirmation belongs; without a tenantId there is nowhere to send it.
+  if (tenantId) {
+    revalidatePath(`/admin/tenants/${tenantId}`);
+    redirect(`/admin/tenants/${tenantId}?done=member-approved`);
+  }
 }
 
 /** Suspend or re-activate any team member (super-admin only). */
@@ -314,8 +319,14 @@ export async function setMemberStatus(formData: FormData) {
   if (!id || !["pending", "active", "suspended"].includes(status)) return;
 
   const supabase = createAdminClient();
-  await supabase.from("profiles").update({ status }).eq("id", id);
+  const { error } = await supabase.from("profiles").update({ status }).eq("id", id);
+  if (error && tenantId) redirect(`/admin/tenants/${tenantId}?error=save`);
 
   revalidatePath("/dashboard/team");
-  if (tenantId) revalidatePath(`/admin/tenants/${tenantId}`);
+  if (tenantId) {
+    revalidatePath(`/admin/tenants/${tenantId}`);
+    redirect(
+      `/admin/tenants/${tenantId}?done=member-${status === "active" ? "activated" : "suspended"}`,
+    );
+  }
 }

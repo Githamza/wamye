@@ -217,7 +217,9 @@
       "openHour": "Ouverture (h)",
       "closeHour": "Fermeture (h)",
       "alwaysOpen": "Toujours ouvert",
-      "save": "Enregistrer"
+      "save": "Enregistrer",
+      "saved": "Vos réglages ont été enregistrés ✓",
+      "saveError": "L'enregistrement a échoué. Réessayez."
     },
     "team": {
       "title": "Équipe",

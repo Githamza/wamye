@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireOwner } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncCompanyAdhocDistance } from "@/lib/tenant";
@@ -45,10 +46,11 @@ export async function updateGeneral(formData: FormData) {
     alwaysOpen: formData.get("alwaysOpen") === "on",
   };
 
-  await supabase
+  const { error } = await supabase
     .from("tenants")
     .update({ branding, zone, fee_config: feeConfig, hours, name: branding.name })
     .eq("id", profile.tenantId);
+  if (error) redirect("/dashboard/settings?error=save");
 
   // Keep the Fleetbase company's driver-visibility radius in step with the zone
   // the owner just drew. Best-effort: a Fleetbase hiccup must not make the
@@ -57,4 +59,7 @@ export async function updateGeneral(formData: FormData) {
 
   revalidatePath("/dashboard/settings");
   revalidatePath(`/t/${profile.tenantId}`);
+  // Same pattern as src/lib/actions/team.ts: the confirmation rides back on a
+  // query param so the server-rendered page can show it without any client JS.
+  redirect("/dashboard/settings?saved=1");
 }

@@ -26,6 +26,17 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+// The codes the actions can put in ?done=; anything else falls back.
+const DONE_MESSAGE: Record<string, string> = {
+  fleetbase: "Connexion Fleetbase enregistrée.",
+  approved: "Compte validé.",
+  activated: "Compte réactivé.",
+  suspended: "Compte suspendu.",
+  "member-approved": "Livreur validé.",
+  "member-activated": "Livreur réactivé.",
+  "member-suspended": "Livreur suspendu.",
+};
+
 type TeamRow = {
   id: string;
   name: string | null;
@@ -37,11 +48,12 @@ type TeamRow = {
 
 export default async function TenantDetailPage(props: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string }>;
+  searchParams: Promise<{ done?: string; error?: string }>;
 }) {
   await requireRole("super_admin");
   const { id } = await props.params;
-  const { saved } = await props.searchParams;
+  const { done, error } = await props.searchParams;
+  const doneMessage = done ? (DONE_MESSAGE[done] ?? "Modifications enregistrées.") : null;
 
   const supabase = createAdminClient();
   const { data: t } = await supabase
@@ -92,9 +104,14 @@ export default async function TenantDetailPage(props: {
         </Link>
       </div>
 
-      {saved && (
+      {doneMessage && (
         <div className="rounded-[10px] border border-brand-border bg-brand-bg px-4 py-2.5 text-[13px] text-brand-ink">
-          Connexion Fleetbase enregistrée.
+          {doneMessage}
+        </div>
+      )}
+      {error && (
+        <div className="rounded-[10px] border border-hair bg-white px-4 py-2.5 text-[13px] text-danger-ink">
+          L&apos;enregistrement a échoué. Réessayez.
         </div>
       )}
 

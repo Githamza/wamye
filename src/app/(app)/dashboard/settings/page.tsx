@@ -25,10 +25,13 @@ function Field({
   );
 }
 
-export default async function SettingsPage() {
+export default async function SettingsPage(props: {
+  searchParams: Promise<{ saved?: string; error?: string }>;
+}) {
   const profile = await requireOwner();
   setRequestLocale(profile.locale);
   const tr = await getTranslations("Dashboard.settings");
+  const { saved, error } = await props.searchParams;
   const supabase = createAdminClient();
 
   const { data: t } = await supabase
@@ -45,6 +48,17 @@ export default async function SettingsPage() {
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-lg font-semibold text-stone-ink">{tr("title")}</h1>
+
+      {saved && (
+        <div className="rounded-[10px] border border-hair bg-white p-3 text-[13px] text-success">
+          {tr("saved")}
+        </div>
+      )}
+      {error && (
+        <div className="rounded-[10px] border border-hair bg-white p-3 text-[13px] text-danger-ink">
+          {tr("saveError")}
+        </div>
+      )}
 
       {/* GENERAL */}
       <form

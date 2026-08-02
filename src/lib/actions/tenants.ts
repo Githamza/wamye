@@ -133,12 +133,15 @@ export async function toggleTenantActive(formData: FormData) {
 
   const supabase = createAdminClient();
   const next = !active;
-  await supabase
+  const { error } = await supabase
     .from("tenants")
     .update({ is_active: next, status: next ? "active" : "suspended" })
     .eq("id", id);
+  if (error) redirect(`/admin/tenants/${id}?error=save`);
+
   revalidatePath("/admin");
   revalidatePath(`/admin/tenants/${id}`);
+  redirect(`/admin/tenants/${id}?done=${next ? "activated" : "suspended"}`);
 }
 
 /** Approve a pending self-registered tenant (super-admin only). */
@@ -148,10 +151,11 @@ export async function approveTenant(formData: FormData) {
   if (!id) return;
 
   const supabase = createAdminClient();
-  await supabase
+  const { error } = await supabase
     .from("tenants")
     .update({ status: "active", is_active: true })
     .eq("id", id);
+  if (error) redirect(`/admin/tenants/${id}?error=save`);
 
   // Tell the owner their account is ready, with the Navigator connection
   // link as the next step (best effort, see helper).
@@ -175,6 +179,7 @@ export async function approveTenant(formData: FormData) {
 
   revalidatePath("/admin");
   revalidatePath(`/admin/tenants/${id}`);
+  redirect(`/admin/tenants/${id}?done=approved`);
 }
 
 /**
@@ -192,7 +197,7 @@ export async function updateTenantFleetbase(formData: FormData) {
   const adhocDistanceRaw = String(formData.get("adhocDistance") ?? "").trim();
   const newKey = String(formData.get("apiKey") ?? "").trim();
 
-  await supabase
+  const { error } = await supabase
     .from("tenants")
     .update({
       fleetbase_api_url: apiUrl,
@@ -200,6 +205,7 @@ export async function updateTenantFleetbase(formData: FormData) {
       fleetbase_adhoc_distance: adhocDistanceRaw ? Number(adhocDistanceRaw) : null,
     })
     .eq("id", id);
+  if (error) redirect(`/admin/tenants/${id}?error=save`);
 
   if (newKey) {
     await supabase.from("tenant_secrets").upsert({
@@ -222,7 +228,7 @@ export async function updateTenantFleetbase(formData: FormData) {
   }
 
   revalidatePath(`/admin/tenants/${id}`);
-  redirect(`/admin/tenants/${id}?saved=1`);
+  redirect(`/admin/tenants/${id}?done=fleetbase`);
 }
 
 /** How a connection test ended. A code, not a sentence — see SyncCode in
