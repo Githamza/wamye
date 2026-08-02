@@ -289,6 +289,15 @@
     "step3Title": "أدخل برقم تليفونك",
     "step3Body": "حلّ Navigator، دخّل رقم تليفونك، وبعد الكود إلي يوصلك في SMS ولّا في الإيمايل. أبقى متّصل باش توصلك التوصيلات."
   },
+  "OpenApp": {
+    "title": "حلّ Navigator",
+    "body": "قاعدين نحلّو تطبيق Navigator على تليفونك…",
+    "openButton": "حلّ Navigator",
+    "fallback": "ما صار شي؟ حلّ تطبيق Navigator بيدك، وبعد جرّ قائمة الطلبات للتحت باش تتحدّث.",
+    "desktopHint": "حلّ الصفحة هذي على تليفونك: تطبيق Navigator يتحلّ من الموبايل برك.",
+    "playStore": "Google Play",
+    "appStore": "App Store"
+  },
   "ApiError": {
     "routing-unavailable": "حساب الطريق مش مفعّل.",
     "bad-request": "طلب غالط.",

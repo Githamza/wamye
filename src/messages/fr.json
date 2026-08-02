@@ -289,6 +289,15 @@
     "step3Title": "Connectez-vous avec votre numéro",
     "step3Body": "Ouvrez Navigator, entrez votre numéro de téléphone, puis le code reçu par SMS ou par e-mail. Restez en ligne pour recevoir les livraisons."
   },
+  "OpenApp": {
+    "title": "Ouvrir Navigator",
+    "body": "Nous ouvrons l'application Navigator sur votre téléphone…",
+    "openButton": "Ouvrir Navigator",
+    "fallback": "Rien ne se passe ? Ouvrez l'application Navigator à la main, puis tirez la liste des commandes vers le bas pour la rafraîchir.",
+    "desktopHint": "Ouvrez cette page sur votre téléphone : l'application Navigator ne s'ouvre que depuis le mobile.",
+    "playStore": "Google Play",
+    "appStore": "App Store"
+  },
   "ApiError": {
     "routing-unavailable": "Le calcul d'itinéraire n'est pas configuré.",
     "bad-request": "Requête invalide.",

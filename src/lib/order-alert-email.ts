@@ -13,9 +13,10 @@
 
 import "server-only";
 import { createFleetbaseClient, type FleetbaseContext } from "@/lib/fleetbase";
+import { siteOrigin } from "@/lib/site-url";
 import type { CreateOrderInput } from "@/lib/order-types";
 
-function renderHtml(input: CreateOrderInput): string {
+function renderHtml(input: CreateOrderInput, openUrl: string): string {
   const fee =
     input.fee != null ? `${input.fee} DT` : null;
   const distance =
@@ -39,7 +40,11 @@ function renderHtml(input: CreateOrderInput): string {
         Ouvrez l'application <strong>Navigator</strong> sur votre téléphone pour
         voir le détail et accepter la course — premier arrivé, premier servi.
       </p>
-      <a href="flbnavigator://"
+      <!-- https, never flbnavigator:// — Brevo rewrites every href into a
+           click-tracking URL and rejects a scheme with no host ("cleanURL:
+           invalid URL: host missing"), which sent drivers to a 404. The
+           relay page fires the deep link from the browser instead. -->
+      <a href="${openUrl}"
          style="display:inline-block;background:#0F766E;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:10px">
         Ouvrir Navigator
       </a>
@@ -55,7 +60,7 @@ function renderHtml(input: CreateOrderInput): string {
 // A text/plain part must accompany the HTML — HTML-only mail (plus Brevo's
 // tracking pixel counting as an image) scores MIME_HTML_ONLY and
 // HTML_IMAGE_ONLY with spam filters.
-function renderText(input: CreateOrderInput): string {
+function renderText(input: CreateOrderInput, openUrl: string): string {
   const facts = [
     `Retrait : ${input.commerceName}`,
     input.fee != null && `Frais de livraison : ${input.fee} DT`,
@@ -69,6 +74,8 @@ function renderText(input: CreateOrderInput): string {
 ${facts}
 
 Ouvrez l'application Navigator sur votre téléphone pour voir le détail et accepter la course — premier arrivé, premier servi.
+
+${openUrl}
 
 Si rien ne s'affiche, tirez la liste des commandes vers le bas pour la rafraîchir.`;
 }
@@ -111,8 +118,9 @@ export async function sendNewOrderAlertEmails(
       return;
     }
 
-    const html = renderHtml(input);
-    const text = renderText(input);
+    const openUrl = `${await siteOrigin()}/ouvrir`;
+    const html = renderHtml(input, openUrl);
+    const text = renderText(input, openUrl);
     const subject = `🛵 Nouvelle course — ${input.commerceName}`;
     const sender = {
       name: "Wamye",
