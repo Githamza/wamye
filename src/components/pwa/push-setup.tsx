@@ -37,7 +37,13 @@ function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
 }
 
 type State =
-  "loading" | "unsupported" | "needs-install" | "off" | "on" | "denied";
+  | "loading"
+  | "unsupported"
+  | "needs-install"
+  | "off"
+  | "on"
+  | "denied"
+  | "failed";
 
 export function PushSetup() {
   const t = useTranslations("Dashboard.push");
@@ -62,22 +68,32 @@ export function PushSetup() {
         return;
       }
 
-      const reg = await navigator.serviceWorker.register("/sw.js", {
-        scope: "/",
-        updateViaCache: "none",
-      });
-
-      // On iOS the API exists but subscribing only works once installed.
+      // On iOS the API exists but subscribing only works once installed, so
+      // say that BEFORE touching the service worker: a registration that hangs
+      // must not be what stops the driver seeing the instructions.
       if (ios && !standalone) {
         setState("needs-install");
         return;
       }
-      if (Notification.permission === "denied") {
-        setState("denied");
-        return;
+
+      try {
+        const reg = await navigator.serviceWorker.register("/sw.js", {
+          scope: "/",
+          updateViaCache: "none",
+        });
+        if (Notification.permission === "denied") {
+          setState("denied");
+          return;
+        }
+        const existing = await reg.pushManager.getSubscription();
+        setState(existing ? "on" : "off");
+      } catch (err) {
+        // Without this the promise rejected, state stayed "loading", and the
+        // component rendered nothing at all — a driver looking for the button
+        // would find no card and no reason why. Failing loudly beats vanishing.
+        console.error("[push] service worker registration failed:", err);
+        setState("failed");
       }
-      const existing = await reg.pushManager.getSubscription();
-      setState(existing ? "on" : "off");
     })();
   }, []);
 
@@ -148,7 +164,9 @@ export function PushSetup() {
                 ? t("denied")
                 : state === "needs-install"
                   ? t("installFirst")
-                  : t("off")}
+                  : state === "failed"
+                    ? t("failed")
+                    : t("off")}
           </span>
         </div>
 

@@ -329,7 +329,8 @@
       "iosStep1": "Appuie sur Partager, en bas de Safari.",
       "iosStep2": "Choisis « Sur l’écran d’accueil », puis rouvre l’app depuis l’icône.",
       "androidStep1": "Ouvre le menu du navigateur.",
-      "androidStep2": "Choisis « Installer l’application », puis rouvre-la depuis l’icône."
+      "androidStep2": "Choisis « Installer l’application », puis rouvre-la depuis l’icône.",
+      "failed": "Impossible d’activer les notifications sur cet appareil. Rouvre l’app depuis son icône, ou réinstalle-la."
     }
   },
   "Connect": {
