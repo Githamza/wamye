@@ -13,7 +13,10 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { lang, slug } = await props.params;
   if (!hasLocale(lang)) notFound();
-  const t = await getTranslations({ locale: lang, namespace: "TenantMetadata" });
+  const t = await getTranslations({
+    locale: lang,
+    namespace: "TenantMetadata",
+  });
 
   const config = await getPageConfig(slug);
   if (!config) return { title: t("notFound") };
@@ -23,10 +26,21 @@ export async function generateMetadata(
     description: t("description", {
       area: config.branding.areaLabel ?? config.branding.name,
     }),
+    // Per-tenant, overriding the platform manifest from the [lang] layout: the
+    // customer installs THIS shop, and the icon has to reopen it rather than
+    // the directory of every tenant.
+    manifest: `/api/manifest/${slug}?lang=${lang}`,
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: config.branding.name,
+    },
   };
 }
 
-export default async function TenantOrderPage(props: PageProps<"/[lang]/t/[slug]">) {
+export default async function TenantOrderPage(
+  props: PageProps<"/[lang]/t/[slug]">,
+) {
   const { lang, slug } = await props.params;
   if (!hasLocale(lang)) notFound();
   setRequestLocale(lang);
