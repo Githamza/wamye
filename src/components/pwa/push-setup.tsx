@@ -8,13 +8,20 @@ import {
 } from "@/lib/actions/push";
 
 /**
- * Service worker registration + the notification opt-in, in one place.
+ * Service worker registration and the notification opt-in.
  *
- * Registered here rather than in the (app) root layout: /login, /signup and the
- * customer surface have no business running a driver service worker.
+ * There is no way to switch notifications on for a driver: the permission has
+ * to come from their own tap, the subscription key is generated on the phone,
+ * and no browser lets a site pre-grant either. So the only lever we have is
+ * making the step impossible to miss — hence the banner rather than the quiet
+ * row this used to be, which is precisely why it went unnoticed.
  *
- * Three platform rules the Next PWA guide is explicit about, and which drive
- * everything below:
+ * Restraint matters in one direction though: a driver who REFUSES can never be
+ * asked again by us — iOS only lets them undo it in Settings. So the banner
+ * pushes while the answer is still open, and goes quiet once it is "no",
+ * showing how to undo it instead of nagging.
+ *
+ * Three platform rules the Next PWA guide is explicit about:
  *   1. `beforeinstallprompt` does not exist on Safari iOS — most of our drivers
  *      — so the install path is written instructions, not a button;
  *   2. on iOS, push requires the app to be INSTALLED to the home screen and
@@ -45,11 +52,15 @@ type State =
   | "denied"
   | "failed";
 
+/** Hidden for this session only — the ask returns next time the app opens. */
+const SNOOZE_KEY = "wamye_push_snoozed";
+
 export function PushSetup() {
   const t = useTranslations("Dashboard.push");
   const [state, setState] = useState<State>("loading");
   const [busy, setBusy] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
+  const [snoozed, setSnoozed] = useState(false);
 
   useEffect(() => {
     // Everything runs inside the async body: setting state synchronously in an
@@ -62,6 +73,7 @@ export function PushSetup() {
         (window.navigator as { standalone?: boolean }).standalone === true;
 
       setIsIOS(ios);
+      setSnoozed(sessionStorage.getItem(SNOOZE_KEY) === "1");
 
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
         setState(ios && !standalone ? "needs-install" : "unsupported");
@@ -126,7 +138,8 @@ export function PushSetup() {
         navigator.userAgent,
       );
       setState(res.ok ? "on" : "off");
-    } catch {
+    } catch (err) {
+      console.error("[push] subscribe failed:", err);
       setState("off");
     } finally {
       setBusy(false);
@@ -148,46 +161,95 @@ export function PushSetup() {
     }
   }
 
+  function snooze() {
+    sessionStorage.setItem(SNOOZE_KEY, "1");
+    setSnoozed(true);
+  }
+
   if (state === "loading" || state === "unsupported") return null;
 
-  return (
-    <div className="flex flex-col gap-2 rounded-[14px] border border-hair bg-white p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="text-[14px] font-medium text-stone-ink">
-            {t("title")}
-          </span>
-          <span className="text-[13px] text-stone-muted">
-            {state === "on"
-              ? t("on")
-              : state === "denied"
-                ? t("denied")
-                : state === "needs-install"
-                  ? t("installFirst")
-                  : state === "failed"
-                    ? t("failed")
-                    : t("off")}
-          </span>
-        </div>
+  // ---- Already on: one quiet line, and a way back out. ----
+  if (state === "on") {
+    return (
+      <div className="flex items-center justify-between gap-3 rounded-[14px] border border-hair bg-white px-4 py-3">
+        <span className="min-w-0 text-[13px] text-stone-muted">{t("on")}</span>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void disable()}
+          className="flex h-8 flex-none items-center rounded-[8px] border border-hair px-3 text-[12px] font-medium text-stone-muted transition-colors hover:bg-hair-2 disabled:opacity-60"
+        >
+          {t("disable")}
+        </button>
+      </div>
+    );
+  }
 
-        {(state === "off" || state === "on") && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void (state === "on" ? disable() : enable())}
-            className="flex h-9 flex-none items-center rounded-[8px] border border-hair px-3 text-[13px] font-medium text-stone-ink transition-colors hover:bg-hair-2 disabled:opacity-60"
-          >
-            {state === "on" ? t("disable") : t("enable")}
-          </button>
-        )}
+  // ---- Refused: no second ask from us — iOS only lets them undo it in
+  //      Settings — so this explains how instead of pushing. ----
+  if (state === "denied") {
+    return (
+      <div className="flex flex-col gap-1 rounded-[14px] border border-hair bg-white p-4">
+        <span className="text-[14px] font-medium text-stone-ink">
+          {t("title")}
+        </span>
+        <span className="text-[13px] text-stone-muted">{t("denied")}</span>
+        <span className="text-[13px] text-stone-muted">
+          {isIOS ? t("deniedHowIos") : t("deniedHowAndroid")}
+        </span>
+      </div>
+    );
+  }
+
+  if (state === "failed") {
+    return (
+      <div className="rounded-[14px] border border-hair bg-white p-4 text-[13px] text-stone-muted">
+        {t("failed")}
+      </div>
+    );
+  }
+
+  // "off" and "needs-install" are the two states worth interrupting for: the
+  // driver is not reachable and does not know it.
+  if (snoozed) return null;
+
+  const needsInstall = state === "needs-install";
+
+  return (
+    <div className="flex flex-col gap-3 rounded-[14px] border border-danger-border bg-danger-bg p-4">
+      <div className="flex flex-col gap-1">
+        <span className="text-[15px] font-semibold text-danger-ink">
+          {needsInstall ? t("installTitle") : t("bannerTitle")}
+        </span>
+        <span className="text-[13px] leading-relaxed text-danger-ink">
+          {needsInstall ? t("installBody") : t("bannerBody")}
+        </span>
       </div>
 
-      {state === "needs-install" && (
-        <ol className="flex flex-col gap-1 border-t border-hair pt-2 text-[13px] text-stone-muted">
+      {needsInstall ? (
+        <ol className="flex list-decimal flex-col gap-1 ps-5 text-[13px] text-danger-ink">
           <li>{isIOS ? t("iosStep1") : t("androidStep1")}</li>
           <li>{isIOS ? t("iosStep2") : t("androidStep2")}</li>
+          <li>{t("step3OpenFromIcon")}</li>
         </ol>
+      ) : (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void enable()}
+          className="flex h-12 items-center justify-center rounded-[10px] bg-brand text-[15px] font-semibold text-white transition-opacity disabled:opacity-60"
+        >
+          {t("enable")}
+        </button>
       )}
+
+      <button
+        type="button"
+        onClick={snooze}
+        className="self-center text-[12px] font-medium text-stone-muted underline underline-offset-2"
+      >
+        {t("later")}
+      </button>
     </div>
   );
 }

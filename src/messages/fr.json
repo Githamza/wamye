@@ -330,7 +330,15 @@
       "iosStep2": "Choisis « Sur l’écran d’accueil », puis rouvre l’app depuis l’icône.",
       "androidStep1": "Ouvre le menu du navigateur.",
       "androidStep2": "Choisis « Installer l’application », puis rouvre-la depuis l’icône.",
-      "failed": "Impossible d’activer les notifications sur cet appareil. Rouvre l’app depuis son icône, ou réinstalle-la."
+      "failed": "Impossible d’activer les notifications sur cet appareil. Rouvre l’app depuis son icône, ou réinstalle-la.",
+      "bannerTitle": "Tu ne seras pas prévenu des nouvelles courses",
+      "bannerBody": "Active les notifications pour les recevoir dès qu’elles arrivent, même quand l’app est fermée.",
+      "installTitle": "Installe l’app pour être prévenu",
+      "installBody": "Sur iPhone, les notifications ne fonctionnent que si l’app est sur ton écran d’accueil.",
+      "step3OpenFromIcon": "Rouvre l’app depuis sa nouvelle icône, puis appuie sur Activer.",
+      "later": "Plus tard",
+      "deniedHowIos": "Réglages → Wamye Pro → Notifications → Autoriser.",
+      "deniedHowAndroid": "Réglages du téléphone → Applications → Wamye → Notifications."
     }
   },
   "Connect": {
