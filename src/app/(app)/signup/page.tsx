@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DriverValue } from "@/components/driver-value";
 import { signupDriver } from "@/lib/actions/signup";
+import { PhoneField } from "@/components/phone-field";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,7 @@ const input =
 
 const ERRORS: Record<string, string> = {
   missing: "Nom, email et mot de passe (8 caractères min) sont obligatoires.",
+  phone: "Numéro invalide : 8 chiffres commençant par 2, 4, 5 ou 9 (sans l'indicatif).",
   email: "Cet email est déjà utilisé.",
   insert: "Échec de la création — réessayez.",
 };
@@ -62,8 +64,12 @@ export default async function SignupPage(props: {
             className={input}
           />
         </Field>
-        <Field label="Téléphone (optionnel)">
-          <input name="supportPhone" placeholder="+216…" className={input} />
+        <Field label="Téléphone">
+          <PhoneField name="supportPhone" size="lg" required />
+          <span id="supportPhone-hint" className="text-[12px] text-stone-muted">
+            8 chiffres, sans l&apos;indicatif. C&apos;est ce numéro qui vous identifie comme
+            livreur dans l&apos;application.
+          </span>
         </Field>
         <Field label="Zone desservie (optionnel)">
           <input name="areaLabel" placeholder="Sfax centre" className={input} />

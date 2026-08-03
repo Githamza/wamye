@@ -10,6 +10,7 @@ import {
 import { statusLabel } from "@/lib/labels";
 import { navigatorConnectUrl } from "@/lib/navigator-link";
 import { SyncDriverButton } from "@/components/sync-driver-button";
+import { PhoneField } from "@/components/phone-field";
 import { NavigatorShareActions } from "@/components/navigator-share";
 import QRCode from "qrcode";
 
@@ -30,6 +31,7 @@ const input =
 const ERROR_KEY: Record<string, string> = {
   missing: "errorMissing",
   email: "errorEmail",
+  phone: "errorPhone",
   insert: "errorInsert",
   forbidden: "errorForbidden",
   pending: "errorPending",
@@ -110,12 +112,7 @@ export default async function TeamPage(props: {
         </div>
         {!self?.phone && (
           <form action={updateOwnPhone} className="flex gap-2">
-            <input
-              name="phone"
-              placeholder={t("phonePlaceholder")}
-              required
-              className={input}
-            />
+            <PhoneField name="phone" required />
             <button
               type="submit"
               className="h-11 shrink-0 rounded-[10px] bg-brand px-4 text-[14px] font-medium text-white"
@@ -166,12 +163,7 @@ export default async function TeamPage(props: {
           required
           className={input}
         />
-        <input
-          name="phone"
-          placeholder={t("memberPhonePlaceholder")}
-          required
-          className={input}
-        />
+        <PhoneField name="phone" required />
         <input
           name="password"
           type="password"

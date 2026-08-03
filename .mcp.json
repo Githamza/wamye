@@ -3,6 +3,15 @@
     "supabase": {
       "type": "http",
       "url": "https://mcp.supabase.com/mcp"
+    },
+    "brevo": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://mcp.brevo.com/v1/brevo/mcp",
+        "--header",
+        "Authorization:Bearer ${BREVO_MCP_TOKEN}"
+      ]
     }
   }
 }

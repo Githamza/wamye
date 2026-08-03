@@ -1,8 +1,9 @@
 // ============================================================
 // Fleetbase console admin client — SERVER ONLY.
 //
-// Exists for exactly one thing the public API cannot do: write a company's
-// `options.fleetops.adhoc_distance`.
+// Exists for the two things the public API cannot do:
+//   1. create a company and mint its API key (provisionCompany)
+//   2. write a company's `options.fleetops.adhoc_distance`
 //
 // Why that option matters. Navigator's "orders near me" list is
 // GET /v1/orders?nearby=driver_…&adhoc=1&unassigned=1&dispatched=1, and
@@ -74,8 +75,8 @@ function serialize<T>(job: () => Promise<T>): Promise<T> {
   return run;
 }
 
-async function login(apiUrl: string): Promise<string> {
-  if (cachedToken) return cachedToken;
+async function login(apiUrl: string, force = false): Promise<string> {
+  if (cachedToken && !force) return cachedToken;
 
   // The field is `identity` (email OR phone), not `email` — see core-api
   // Internal/v1/AuthController::login.
@@ -94,6 +95,172 @@ async function login(apiUrl: string): Promise<string> {
 
   cachedToken = body.token;
   return cachedToken;
+}
+
+/**
+ * One authenticated call to /int/v1, retried once on 401.
+ *
+ * The retry is the point: `cachedToken` lives as long as the server process,
+ * while Fleetbase personal access tokens do not. Without it, the first token to
+ * expire would break every admin write until the next deploy.
+ *
+ * 403 is deliberately NOT retried — it is a real denial (e.g. "Generic
+ * organization deletion is not supported"), not a stale credential.
+ */
+async function adminFetch(
+  apiUrl: string,
+  path: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  const call = async (token: string) =>
+    fetch(`${apiUrl}${path}`, {
+      ...init,
+      headers: {
+        ...(init.headers ?? {}),
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+
+  const res = await call(await login(apiUrl));
+  if (res.status !== 401) return res;
+
+  cachedToken = null;
+  return call(await login(apiUrl, true));
+}
+
+/** Read the internal API's response, which wraps resources under a singular key. */
+async function unwrap<T>(res: Response, key: string, what: string): Promise<T> {
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { errors?: string[] } | null;
+    const detail = body?.errors?.join(", ");
+    throw new Error(`${what} failed (${res.status})${detail ? `: ${detail}` : ""}`);
+  }
+  const body = (await res.json()) as Record<string, unknown>;
+  return (body[key] ?? body) as T;
+}
+
+/** A freshly provisioned Fleetbase company and the key that talks to it. */
+export type ProvisionedCompany = {
+  /** `company_…` — what /v1/organizations/current calls `id`. */
+  companyId: string;
+  /** `flb_live_…`, shown exactly once: store it or lose it. */
+  apiKey: string;
+};
+
+/**
+ * Create a Fleetbase company and mint its API key, in one admin session.
+ *
+ * Both endpoints are internal-API-only: `flb_live_*` keys are rejected by
+ * /int/v1 outright, and there is no public route that creates a company. The
+ * company is created UNDER THE ADMIN ACCOUNT (`create-organization` sets
+ * owner_uuid to the caller), which is what later lets setCompanyAdhocDistance
+ * find it in /int/v1/auth/organizations and switch onto it.
+ *
+ * Serialised with the adhoc writes for the same reason they are serialised with
+ * each other: creating an organization silently switches the admin user's
+ * session onto it, and that switch is stored on the USER row, not the token.
+ *
+ * Verified by round-trip against v0.7.51. Note `create-organization` validates
+ * nothing — an empty body yields a nameless company that CANNOT be deleted
+ * ("Generic organization deletion is not supported"), so callers must pass a
+ * name and must not retry blindly on an ambiguous failure.
+ */
+export async function provisionCompany(
+  name: string,
+  opts: {
+    description?: string;
+    phone?: string;
+    country?: string;
+    currency?: string;
+    timezone?: string;
+    apiUrl?: string;
+    /** Label shown next to the key in the Fleetbase console. */
+    keyName?: string;
+  } = {},
+): Promise<ProvisionedCompany | null> {
+  if (!isFleetbaseAdminConfigured()) return null;
+
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("company name is required");
+  const apiUrl = opts.apiUrl ?? defaultFleetbaseApiUrl();
+
+  return serialize(async () => {
+    const created = await unwrap<{ uuid?: string; public_id?: string }>(
+      await adminFetch(apiUrl, "/int/v1/auth/create-organization", {
+        method: "POST",
+        body: JSON.stringify({
+          name: trimmed,
+          description: opts.description,
+          phone: opts.phone,
+          country: opts.country ?? "TN",
+          currency: opts.currency ?? "TND",
+          timezone: opts.timezone ?? "Africa/Tunis",
+        }),
+      }),
+      "company",
+      "organization create",
+    );
+    if (!created.uuid || !created.public_id) {
+      throw new Error("organization create returned no id");
+    }
+
+    // create-organization already leaves the session on the new company, but
+    // say so explicitly: the key is minted for whatever company the session is
+    // on, and a wrong one here would hand this tenant another tenant's fleet.
+    // An "already on this organization" error back is success.
+    await adminFetch(apiUrl, "/int/v1/auth/switch-organization", {
+      method: "POST",
+      body: JSON.stringify({ next: created.uuid }),
+    });
+
+    const credential = await unwrap<{ key?: string; company_uuid?: string }>(
+      await adminFetch(apiUrl, "/int/v1/api-credentials", {
+        method: "POST",
+        body: JSON.stringify({ name: opts.keyName ?? "Wamye" }),
+      }),
+      "api_credential",
+      "api key create",
+    );
+
+    // The key is only ever returned in full here, so verify before it is the
+    // one thing we keep: a key belonging to another company would look fine in
+    // every later check and quietly cross-file this tenant's orders.
+    if (credential.company_uuid !== created.uuid) {
+      throw new Error(
+        `api key landed on the wrong company (${credential.company_uuid} ≠ ${created.uuid})`,
+      );
+    }
+    if (!credential.key) throw new Error("api key create returned no key");
+
+    await restoreHomeCompany(apiUrl, created.public_id);
+    return { companyId: created.public_id, apiKey: credential.key };
+  });
+}
+
+/**
+ * Put the admin account back on its own company. Best-effort and never fatal:
+ * the caller's work is already done and verified by the time this runs — this
+ * only spares a human admin from finding their console on a tenant's fleet.
+ */
+async function restoreHomeCompany(apiUrl: string, current: string): Promise<void> {
+  const home = (process.env.FLEETBASE_ADMIN_HOME_COMPANY ?? "").trim();
+  if (!home || home === current) return;
+
+  try {
+    const res = await adminFetch(apiUrl, "/int/v1/auth/organizations");
+    if (!res.ok) return;
+    const orgs = (await res.json()) as Array<{ uuid?: string; public_id?: string }>;
+    const uuid = orgs.find((o) => o.public_id === home)?.uuid;
+    if (!uuid) return;
+    await adminFetch(apiUrl, "/int/v1/auth/switch-organization", {
+      method: "POST",
+      body: JSON.stringify({ next: uuid }),
+    });
+  } catch {
+    // Cosmetic — see above.
+  }
 }
 
 /**
@@ -120,31 +287,23 @@ export async function setCompanyAdhocDistance(
   if (!isFleetbaseAdminConfigured()) return null;
 
   return serialize(async () => {
-    const token = await login(apiUrl);
-    const headers = {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    };
-
     // CompanyController::resolveVisibleCompany only ever resolves the SESSION
     // company — an admin flag buys nothing on this route. So the session has to
     // be moved onto the target first, or every read and write 404s.
-    const orgsRes = await fetch(`${apiUrl}/int/v1/auth/organizations`, { headers });
+    const orgsRes = await adminFetch(apiUrl, "/int/v1/auth/organizations");
     if (!orgsRes.ok) throw new Error(`organizations read failed (${orgsRes.status})`);
     const orgs = (await orgsRes.json()) as Array<{ uuid?: string; public_id?: string }>;
     const target = orgs.find((o) => o.public_id === companyId);
     if (!target?.uuid) throw new Error(`admin does not belong to ${companyId}`);
 
-    const swap = await fetch(`${apiUrl}/int/v1/auth/switch-organization`, {
+    const swap = await adminFetch(apiUrl, "/int/v1/auth/switch-organization", {
       method: "POST",
-      headers,
       body: JSON.stringify({ next: target.uuid }),
     });
     // Already-on-this-org comes back 200 with an `errors` array, which is fine.
     if (!swap.ok) throw new Error(`organization switch failed (${swap.status})`);
 
-    const found = await fetch(`${apiUrl}/int/v1/companies/${companyId}`, { headers });
+    const found = await adminFetch(apiUrl, `/int/v1/companies/${companyId}`);
     if (!found.ok) throw new Error(`company read failed (${found.status})`);
 
     // Internal responses are wrapped under the singular resource name.
@@ -153,9 +312,8 @@ export async function setCompanyAdhocDistance(
     const options = company.options ?? {};
     const fleetops = (options.fleetops ?? {}) as Record<string, unknown>;
 
-    const res = await fetch(`${apiUrl}/int/v1/companies/${companyId}`, {
+    const res = await adminFetch(apiUrl, `/int/v1/companies/${companyId}`, {
       method: "PUT",
-      headers,
       body: JSON.stringify({
         company: { options: { ...options, fleetops: { ...fleetops, adhoc_distance: meters } } },
       }),
@@ -178,23 +336,67 @@ export async function setCompanyAdhocDistance(
     // Put the account back where it was. Only matters when the credentials
     // belong to a human who also signs into the console — without this, every
     // zone save silently moves their active organization.
-    const home = (process.env.FLEETBASE_ADMIN_HOME_COMPANY ?? "").trim();
-    if (home && home !== companyId) {
-      const homeUuid = orgs.find((o) => o.public_id === home)?.uuid;
-      if (homeUuid) {
-        await fetch(`${apiUrl}/int/v1/auth/switch-organization`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ next: homeUuid }),
-        }).catch(() => {
-          // Best-effort: the radius is already written and verified, and a
-          // failed restore is cosmetic. Never fail the sync over it.
-        });
-      }
-    }
+    await restoreHomeCompany(apiUrl, companyId);
 
     return meters;
   });
+}
+
+/** Which of a person's identifiers are already taken somewhere on the instance. */
+export type IdentityConflict = { email: boolean; phone: boolean };
+
+const NO_CONFLICT: IdentityConflict = { email: false, phone: false };
+
+/**
+ * Is this email / phone already attached to a Fleetbase user ANYWHERE on the
+ * instance?
+ *
+ * Fleetbase users are unique instance-wide, not per company: a person already
+ * registered under one organization cannot be created as a driver under
+ * another, and the attempt comes back as a bare 422. Worth catching before the
+ * approval rather than after.
+ *
+ * There is no user-lookup endpoint to ask with — `/int/v1/users` only ever
+ * sees the session company, and `/int/v1/users/search` finds nothing at all.
+ * What does answer is the ONBOARDING VALIDATOR: a partial body posted to
+ * `/int/v1/onboard/create-account` runs the uniqueness rules and returns
+ * "An account with this email address already exists" / "…phone number…"
+ * among the "field is required" errors — while creating nothing, precisely
+ * because the required fields are missing. No authentication needed either.
+ *
+ * Best-effort by design: any transport or shape surprise reports "no conflict"
+ * rather than blocking an approval on a probe that is itself a workaround.
+ */
+export async function checkIdentityConflict(
+  input: { email?: string | null; phone?: string | null },
+  apiUrl: string = defaultFleetbaseApiUrl(),
+): Promise<IdentityConflict> {
+  const email = input.email?.trim();
+  const phone = input.phone?.trim();
+  if (!email && !phone) return NO_CONFLICT;
+
+  try {
+    const res = await fetch(`${apiUrl}/int/v1/onboard/create-account`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ email, phone }),
+    });
+
+    // 422 is the expected answer here — the body IS the validator's verdict.
+    const body = (await res.json().catch(() => null)) as { errors?: string[] } | null;
+    const errors = body?.errors;
+    if (!Array.isArray(errors)) return NO_CONFLICT;
+
+    const said = (needle: string) =>
+      errors.some((e) => typeof e === "string" && e.toLowerCase().includes(needle));
+
+    return {
+      email: Boolean(email) && said("email address already exists"),
+      phone: Boolean(phone) && said("phone number already exists"),
+    };
+  } catch {
+    return NO_CONFLICT;
+  }
 }
 
 /**

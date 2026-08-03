@@ -2,19 +2,27 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { requireOwner } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { formatDinar, formatKm } from "@/lib/format";
-import { stageLabel } from "@/lib/labels";
+import { stateLabel } from "@/lib/labels";
 
 export const dynamic = "force-dynamic";
 
 type Row = {
   fee: number | null;
   distance_km: number | null;
-  stage: string | null;
-  status: string | null;
+  state: string | null;
   created_at: string;
 };
 
 const WINDOW_DAYS = 90;
+
+/**
+ * Outside the component: reading the clock during render is impure and React 19
+ * lints it. The page is force-dynamic, so this still runs per request.
+ */
+function windowStart(): { since: string; now: number } {
+  const now = Date.now();
+  return { since: new Date(now - WINDOW_DAYS * 86400_000).toISOString(), now };
+}
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -31,18 +39,19 @@ export default async function StatsPage() {
   const t = await getTranslations("Dashboard.stats");
   const supabase = await createClient();
 
-  const since = new Date(Date.now() - WINDOW_DAYS * 86400_000).toISOString();
+  const { since, now } = windowStart();
   const { data } = await supabase
     .from("orders")
-    .select("fee, distance_km, stage, status, created_at")
+    .select("fee, distance_km, state, created_at")
     .gte("created_at", since)
     .order("created_at", { ascending: false });
 
   const rows = (data ?? []) as Row[];
 
-  const now = Date.now();
-  const in7 = (r: Row) => now - new Date(r.created_at).getTime() <= 7 * 86400_000;
-  const in30 = (r: Row) => now - new Date(r.created_at).getTime() <= 30 * 86400_000;
+  const in7 = (r: Row) =>
+    now - new Date(r.created_at).getTime() <= 7 * 86400_000;
+  const in30 = (r: Row) =>
+    now - new Date(r.created_at).getTime() <= 30 * 86400_000;
 
   const total = rows.length;
   const last7 = rows.filter(in7).length;
@@ -51,14 +60,14 @@ export default async function StatsPage() {
   const distances = rows.filter((r) => r.distance_km != null);
   const avgDistance =
     distances.length > 0
-      ? distances.reduce((s, r) => s + (r.distance_km ?? 0), 0) / distances.length
+      ? distances.reduce((s, r) => s + (r.distance_km ?? 0), 0) /
+        distances.length
       : 0;
 
-  // Breakdown by stage (fall back to status when stage is null).
+  // Breakdown by course state.
   const byStage = new Map<string, number>();
   for (const r of rows) {
-    const key = r.stage ?? r.status ?? "—";
-    byStage.set(key, (byStage.get(key) ?? 0) + 1);
+    byStage.set(r.state ?? "—", (byStage.get(r.state ?? "—") ?? 0) + 1);
   }
   const breakdown = [...byStage.entries()].sort((a, b) => b[1] - a[1]);
   const maxCount = breakdown.reduce((m, [, c]) => Math.max(m, c), 0);
@@ -67,19 +76,29 @@ export default async function StatsPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-lg font-semibold text-stone-ink">{t("title")}</h1>
-        <p className="text-[13px] text-stone-muted">{t("window", { days: WINDOW_DAYS })}</p>
+        <p className="text-[13px] text-stone-muted">
+          {t("window", { days: WINDOW_DAYS })}
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Stat label={t("total")} value={String(total)} />
         <Stat label={t("last7")} value={String(last7)} />
         <Stat label={t("last30")} value={String(last30)} />
-        <Stat label={t("revenue")} value={formatDinar(revenue, profile.locale)} />
-        <Stat label={t("avgDistance")} value={formatKm(avgDistance, profile.locale)} />
+        <Stat
+          label={t("revenue")}
+          value={formatDinar(revenue, profile.locale)}
+        />
+        <Stat
+          label={t("avgDistance")}
+          value={formatKm(avgDistance, profile.locale)}
+        />
       </div>
 
       <div className="flex flex-col gap-3 rounded-[14px] border border-hair bg-white p-5">
-        <div className="text-[14px] font-semibold text-stone-ink">{t("byStage")}</div>
+        <div className="text-[14px] font-semibold text-stone-ink">
+          {t("byStage")}
+        </div>
         {breakdown.length === 0 ? (
           <p className="text-[14px] text-stone-muted">{t("empty")}</p>
         ) : (
@@ -87,12 +106,14 @@ export default async function StatsPage() {
             {breakdown.map(([stage, count]) => (
               <li key={stage} className="flex items-center gap-3">
                 <span className="w-32 flex-none text-[13px] text-stone-muted2">
-                  {stageLabel(stage, profile.locale)}
+                  {stateLabel(stage, profile.locale)}
                 </span>
                 <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-hair-2">
                   <div
                     className="h-full rounded-full bg-brand"
-                    style={{ width: `${maxCount > 0 ? (count / maxCount) * 100 : 0}%` }}
+                    style={{
+                      width: `${maxCount > 0 ? (count / maxCount) * 100 : 0}%`,
+                    }}
                   />
                 </div>
                 <span className="w-8 flex-none text-end text-[13px] font-medium text-stone-ink">

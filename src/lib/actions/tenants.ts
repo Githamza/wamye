@@ -8,6 +8,7 @@ import { syncDriverToFleetbase } from "@/lib/actions/team";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { encryptSecret } from "@/lib/crypto";
 import { slugify } from "@/lib/slug";
+import { normalizePhone, toInternationalPhone } from "@/lib/phone";
 import { getTenantFleetbaseContext, syncCompanyAdhocDistance } from "@/lib/tenant";
 import { navigatorConnectUrl } from "@/lib/navigator-link";
 import {
@@ -15,6 +16,7 @@ import {
   envFleetbaseContext,
   FleetbaseError,
 } from "@/lib/fleetbase";
+import { isFleetbaseAdminConfigured, provisionCompany } from "@/lib/fleetbase-admin";
 
 function num(v: FormDataEntryValue | null, fallback: number): number {
   const n = Number(String(v ?? "").trim());
@@ -51,7 +53,7 @@ export async function createTenant(formData: FormData) {
     name,
     logoEmoji: String(formData.get("logoEmoji") ?? "").trim() || "🛵",
     areaLabel: String(formData.get("areaLabel") ?? "").trim() || undefined,
-    supportPhone: String(formData.get("supportPhone") ?? "").trim() || undefined,
+    supportPhone: normalizePhone(String(formData.get("supportPhone") ?? "")) || undefined,
   };
   const zone = {
     centerLat: num(formData.get("centerLat"), 33.808),
@@ -70,7 +72,6 @@ export async function createTenant(formData: FormData) {
   };
   const apiUrl = String(formData.get("apiUrl") ?? "").trim() || null;
   const orderType = String(formData.get("orderType") ?? "").trim() || "storefront";
-  const adhocDistanceRaw = String(formData.get("adhocDistance") ?? "").trim();
   const apiKey = String(formData.get("apiKey") ?? "").trim();
 
   // 1. tenant row
@@ -86,7 +87,6 @@ export async function createTenant(formData: FormData) {
       phone_country: "TN",
       fleetbase_api_url: apiUrl,
       fleetbase_order_type: orderType,
-      fleetbase_adhoc_distance: adhocDistanceRaw ? Number(adhocDistanceRaw) : null,
       status: "active",
       is_active: true,
     })
@@ -144,6 +144,123 @@ export async function toggleTenantActive(formData: FormData) {
   redirect(`/admin/tenants/${id}?done=${next ? "activated" : "suspended"}`);
 }
 
+/** How a provisioning attempt ended — a code, not a sentence (see TestCode). */
+export type ProvisionCode =
+  | "provisioned"
+  | "already-provisioned"
+  | "not-configured"
+  | "tenant-not-found"
+  | "failed";
+
+export type ProvisionResult = {
+  ok: boolean;
+  code: ProvisionCode;
+  /** Upstream diagnostics for "failed"; shown verbatim, never translated. */
+  detail?: string;
+} | null;
+
+/**
+ * Give a tenant its own Fleetbase company: create the organization, mint its
+ * API key, store the key encrypted, and open the company's adhoc radius to the
+ * tenant's zone.
+ *
+ * Idempotent by the only test that matters — an existing stored key. A tenant
+ * whose key was pasted by hand is left alone, and a retry after a half-failure
+ * never mints a second company, because the key is written in the same step.
+ *
+ * Never throws: provisioning is best-effort inside approval (a Fleetbase
+ * outage must not block validating an account), and the admin page exposes an
+ * explicit retry — the same rule as syncDriverToFleetbase.
+ */
+async function provisionTenantFleetbase(id: string): Promise<ProvisionResult> {
+  if (!isFleetbaseAdminConfigured()) return { ok: false, code: "not-configured" };
+
+  const supabase = createAdminClient();
+  const { data: t } = await supabase
+    .from("tenants")
+    .select("name, slug, branding, zone, phone_country, fleetbase_api_url")
+    .eq("id", id)
+    .maybeSingle();
+  if (!t) return { ok: false, code: "tenant-not-found" };
+
+  const { data: existing } = await supabase
+    .from("tenant_secrets")
+    .select("tenant_id")
+    .eq("tenant_id", id)
+    .maybeSingle();
+  if (existing) return { ok: true, code: "already-provisioned" };
+
+  try {
+    const branding = (t.branding ?? {}) as { supportPhone?: string };
+    const apiUrl = (t.fleetbase_api_url as string | null) ?? undefined;
+    const country = (t.phone_country as string | null) ?? "TN";
+
+    // Same normalisation as the driver record: the signup field is free text,
+    // so the support number arrives as +216…, 216…, 00216… or 8 bare digits.
+    const phone = branding.supportPhone
+      ? toInternationalPhone(branding.supportPhone, country)
+      : undefined;
+
+    const company = await provisionCompany(t.name as string, {
+      description: `Wamye · /t/${t.slug}`,
+      phone: phone || undefined,
+      country,
+      apiUrl,
+    });
+    if (!company) return { ok: false, code: "not-configured" };
+
+    // The key first and on its own: it is returned exactly once, so anything
+    // that could fail before it is stored would strand a live company nobody
+    // can reach (Fleetbase does not allow deleting one either).
+    const { error: sErr } = await supabase.from("tenant_secrets").upsert({
+      tenant_id: id,
+      fleetbase_api_key_encrypted: encryptSecret(company.apiKey),
+      updated_at: new Date().toISOString(),
+    });
+    if (sErr) throw new Error(`storing the key failed: ${sErr.message}`);
+
+    await supabase
+      .from("tenants")
+      .update({ fleetbase_company_id: company.companyId })
+      .eq("id", id);
+
+    // A new company defaults to a 6 km adhoc radius, which would hide most of
+    // the tenant's own zone from its drivers. See adhocDistanceForZone.
+    const radiusKm = (t.zone as { radiusKm?: number } | null)?.radiusKm;
+    if (typeof radiusKm === "number") await syncCompanyAdhocDistance(id, radiusKm);
+
+    return { ok: true, code: "provisioned" };
+  } catch (err) {
+    console.error("[tenants] provisioning failed:", (err as Error).message);
+    return { ok: false, code: "failed", detail: (err as Error).message };
+  }
+}
+
+/** "Provisionner Fleetbase": the retry path when approval's attempt failed. */
+export async function provisionTenant(tenantId: string): Promise<ProvisionResult> {
+  await requireRole("super_admin");
+  const result = await provisionTenantFleetbase(tenantId);
+  if (result?.ok) {
+    revalidatePath(`/admin/tenants/${tenantId}`);
+    // The owner could not be filed as a driver while the company had no key.
+    const owner = await tenantOwnerProfileId(tenantId);
+    if (owner) await syncDriverToFleetbase(owner);
+  }
+  return result;
+}
+
+/** The tenant's owner profile — the self-registered driver, not a sub-driver. */
+async function tenantOwnerProfileId(tenantId: string): Promise<string | null> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .is("parent_profile_id", null)
+    .maybeSingle();
+  return (data?.id as string | undefined) ?? null;
+}
+
 /** Approve a pending self-registered tenant (super-admin only). */
 export async function approveTenant(formData: FormData) {
   await requireRole("super_admin");
@@ -151,6 +268,14 @@ export async function approveTenant(formData: FormData) {
   if (!id) return;
 
   const supabase = createAdminClient();
+
+  // Before the status flip, so the rest of approval finds a working company:
+  // syncDriverToFleetbase refuses to file a driver against a tenant with no key
+  // of its own, which is what used to make approval a three-step manual dance.
+  // Best-effort — a failure here leaves the account approved and the admin page
+  // offering a retry, rather than blocking validation on a Fleetbase outage.
+  const provisioned = await provisionTenantFleetbase(id);
+
   const { error } = await supabase
     .from("tenants")
     .update({ status: "active", is_active: true })
@@ -169,17 +294,16 @@ export async function approveTenant(formData: FormData) {
   // pool now rather than making them find the Team page. Best effort, same
   // rule as sub-driver approval: approval stands even if the sync fails — the
   // Team page keeps its retry button.
-  const { data: owner } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("tenant_id", id)
-    .is("parent_profile_id", null)
-    .maybeSingle();
-  if (owner) await syncDriverToFleetbase(owner.id as string);
+  const owner = await tenantOwnerProfileId(id);
+  if (owner) await syncDriverToFleetbase(owner);
 
   revalidatePath("/admin");
   revalidatePath(`/admin/tenants/${id}`);
-  redirect(`/admin/tenants/${id}?done=approved`);
+  // Say which of the two happened: the admin needs to know when the account is
+  // live but its Fleetbase side still has to be retried.
+  redirect(
+    `/admin/tenants/${id}?done=${provisioned?.ok ? "approved" : "approved-no-fleetbase"}`,
+  );
 }
 
 /**
@@ -194,15 +318,16 @@ export async function updateTenantFleetbase(formData: FormData) {
   const supabase = createAdminClient();
   const apiUrl = String(formData.get("apiUrl") ?? "").trim() || null;
   const orderType = String(formData.get("orderType") ?? "").trim() || null;
-  const adhocDistanceRaw = String(formData.get("adhocDistance") ?? "").trim();
   const newKey = String(formData.get("apiKey") ?? "").trim();
 
+  // `fleetbase_adhoc_distance` is deliberately NOT written here — the admin form
+  // no longer exposes it, and touching it would wipe the values set by hand for
+  // testing. See the note on the payload line in @/lib/fleetbase.
   const { error } = await supabase
     .from("tenants")
     .update({
       fleetbase_api_url: apiUrl,
       fleetbase_order_type: orderType,
-      fleetbase_adhoc_distance: adhocDistanceRaw ? Number(adhocDistanceRaw) : null,
     })
     .eq("id", id);
   if (error) redirect(`/admin/tenants/${id}?error=save`);

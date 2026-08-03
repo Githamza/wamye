@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth/dal";
 import { createTenant } from "@/lib/actions/tenants";
 import { ZoneMapEditor } from "@/components/zone-map-editor";
+import { PhoneField } from "@/components/phone-field";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +65,7 @@ export default async function NewTenantPage(props: {
               <input name="areaLabel" placeholder="Sfax centre" className={input} />
             </Field>
             <Field label="Téléphone support">
-              <input name="supportPhone" placeholder="+216…" className={input} />
+              <PhoneField name="supportPhone" />
             </Field>
             <Field label="Email de l'admin">
               <input name="adminEmail" type="email" placeholder="admin@…" required className={input} />
@@ -106,14 +107,9 @@ export default async function NewTenantPage(props: {
           <Field label="URL de l'API">
             <input name="apiUrl" placeholder="http://…" className={input} />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Order type">
-              <input name="orderType" defaultValue="storefront" className={input} />
-            </Field>
-            <Field label="Rayon diffusion (m)">
-              <input name="adhocDistance" type="number" placeholder="30000" className={input} />
-            </Field>
-          </div>
+          <Field label="Order type">
+            <input name="orderType" defaultValue="storefront" className={input} />
+          </Field>
           <Field label="Clé API (flb_live_…) — peut être ajoutée plus tard">
             <input name="apiKey" type="password" autoComplete="off" placeholder="flb_live_…" className={input} />
           </Field>

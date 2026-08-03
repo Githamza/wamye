@@ -15,6 +15,41 @@ const nextConfig: NextConfig = {
   // Emit .next/standalone so the Docker runtime stage needs no node_modules.
   output: "standalone",
   outputFileTracingRoot: path.join(__dirname),
+
+  // web-push is Node-only; leave it unbundled so the standalone trace keeps it.
+  serverExternalPackages: ["web-push"],
+
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+      {
+        // Scoped, NOT global. The Next PWA guide suggests a blanket DENY, but
+        // /[lang]/t/[slug] is a link merchants embed in their own pages — a
+        // global rule would break that silently, and we'd hear about it from a
+        // merchant rather than from a log.
+        source: "/dashboard/:path*",
+        headers: [{ key: "X-Frame-Options", value: "DENY" }],
+      },
+      {
+        source: "/admin/:path*",
+        headers: [{ key: "X-Frame-Options", value: "DENY" }],
+      },
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self'" },
+        ],
+      },
+    ];
+  },
 };
 
 export default withNextIntl(nextConfig);

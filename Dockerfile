@@ -29,6 +29,13 @@ ARG NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+# The VAPID public key is read by the browser to subscribe to Web Push, so it
+# has the same constraint: a runtime-only var inlines as `undefined` and
+# pushManager.subscribe() throws — a failure that only shows up in production.
+# Public by design (it is the server's identity, not a secret); VAPID_PRIVATE_KEY
+# stays runtime-only.
+ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY
+ENV NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build

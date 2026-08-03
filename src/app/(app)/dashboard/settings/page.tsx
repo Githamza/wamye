@@ -3,6 +3,7 @@ import { requireOwner } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { updateGeneral } from "@/lib/actions/tenant-settings";
 import { ZoneMapEditor } from "@/components/zone-map-editor";
+import { PhoneField } from "@/components/phone-field";
 import type { Branding, FeeConfig, Hours, Zone } from "@/lib/config-types";
 
 export const dynamic = "force-dynamic";
@@ -78,7 +79,7 @@ export default async function SettingsPage(props: {
             <input name="areaLabel" defaultValue={branding.areaLabel ?? ""} className={input} />
           </Field>
           <Field label={tr("supportPhone")}>
-            <input name="supportPhone" defaultValue={branding.supportPhone ?? ""} className={input} />
+            <PhoneField name="supportPhone" defaultValue={branding.supportPhone ?? ""} />
           </Field>
         </div>
 

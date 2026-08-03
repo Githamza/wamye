@@ -40,3 +40,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Working material, kept on the `archives-locales` branch: driver mailing
+# lists, survey email drafts, the tuto/ guide build scripts and its output.
+/driver-emails*.txt
+/survey-email.*
+/tuto/

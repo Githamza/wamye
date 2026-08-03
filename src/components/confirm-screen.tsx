@@ -4,12 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { MessageCircle, X } from "lucide-react";
 import { formatDinar } from "@/lib/format";
-import type { OrderStage, OrderStatus } from "@/lib/order-types";
+import type { OrderStage, TrackedOrder } from "@/lib/order-types";
 
 type Props = {
-  orderId?: string | null;
-  /** Tenant slug — carried on status polls so the server uses the right company. */
-  slug: string;
+  /**
+   * The per-order capability returned by POST /api/orders. It is what the
+   * tracking poll authenticates with — there is no id to enumerate.
+   */
+  trackingToken?: string | null;
   brandName?: string;
   courseNumber: number;
   order: string;
@@ -55,8 +57,7 @@ function labelClass(step: OrderStage, stage: OrderStage): string {
 }
 
 export function ConfirmScreen({
-  orderId,
-  slug,
+  trackingToken,
   brandName,
   courseNumber,
   order,
@@ -71,51 +72,53 @@ export function ConfirmScreen({
   // Start optimistic; live polling refines this once the order exists.
   const [stage, setStage] = useState<OrderStage>("searching");
   const [tracking, setTracking] = useState<string | null>(null);
+  const [driverName, setDriverName] = useState<string | null>(null);
+  // Read by the polling loop to decide the next delay and when to stop. Kept in
+  // sync from an effect, not during render.
   const stageRef = useRef(stage);
-  stageRef.current = stage;
+  useEffect(() => {
+    stageRef.current = stage;
+  }, [stage]);
 
   useEffect(() => {
-    if (!orderId) return;
+    if (!trackingToken) return;
     let cancelled = false;
-    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
 
     async function poll() {
-      attempts += 1;
       try {
-        const res = await fetch(
-          `/api/orders/${orderId}?slug=${encodeURIComponent(slug)}`,
-          { cache: "no-store" },
-        );
-        if (!res.ok) return;
-        const data = (await res.json()) as OrderStatus;
-        if (cancelled) return;
-        setStage(data.stage);
-        if (data.trackingNumber) setTracking(data.trackingNumber);
+        const res = await fetch(`/api/track/${trackingToken}`, {
+          cache: "no-store",
+        });
+        if (res.ok) {
+          const data = (await res.json()) as TrackedOrder;
+          if (cancelled) return;
+          setStage(data.stage);
+          setDriverName(data.driverName);
+          if (data.trackingNumber) setTracking(data.trackingNumber);
+        }
       } catch {
-        /* transient — keep last known stage */
+        /* transient — keep the last known stage */
       }
+
+      if (cancelled) return;
+      const s = stageRef.current;
+      // Stop only when the order is actually finished. The old code gave up
+      // after 40 attempts — about five minutes — so the customer's timeline
+      // froze *before* the delivery it was meant to show. A course can sit
+      // waiting for twenty minutes at three in the morning.
+      if (s === "delivered" || s === "canceled") return;
+      // Slower once a driver is on the way: the interesting change has happened.
+      timer = setTimeout(poll, s === "enroute" ? 15_000 : 8_000);
     }
 
-    poll();
-    const timer = setInterval(() => {
-      // Stop once delivered/canceled, or after ~5 min of polling.
-      if (
-        cancelled ||
-        stageRef.current === "delivered" ||
-        stageRef.current === "canceled" ||
-        attempts > 40
-      ) {
-        clearInterval(timer);
-        return;
-      }
-      poll();
-    }, 8000);
+    void poll();
 
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      if (timer) clearTimeout(timer);
     };
-  }, [orderId, slug]);
+  }, [trackingToken]);
 
   const delivered = stage === "delivered";
   const canceled = stage === "canceled";
@@ -125,7 +128,12 @@ export function ConfirmScreen({
       <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4 pt-6">
         {/* success hero */}
         <div className="flex flex-col items-center gap-2.5 px-0 pb-1 pt-2">
-          <svg width="72" height="72" viewBox="0 0 72 72" className="anim-pop-in">
+          <svg
+            width="72"
+            height="72"
+            viewBox="0 0 72 72"
+            className="anim-pop-in"
+          >
             <circle
               cx="36"
               cy="36"
@@ -181,10 +189,14 @@ export function ConfirmScreen({
               <span className="mt-1 w-0.5 flex-1 bg-hair" />
             </div>
             <div className="flex flex-col gap-px pb-[22px]">
-              <div className={`text-[15px] font-semibold ${labelClass("searching", stage)}`}>
+              <div
+                className={`text-[15px] font-semibold ${labelClass("searching", stage)}`}
+              >
                 {t("stageSearching")}
               </div>
-              <div className="text-[13px] text-stone-muted">{t("stageSearchingHint")}</div>
+              <div className="text-[13px] text-stone-muted">
+                {t("stageSearchingHint")}
+              </div>
             </div>
           </div>
           <div className="flex gap-3.5">
@@ -192,17 +204,28 @@ export function ConfirmScreen({
               <TimelineDot state={dotFor("enroute", stage)} />
               <span className="mt-1 w-0.5 flex-1 bg-hair" />
             </div>
-            <div
-              className={`pb-[22px] text-[15px] font-medium ${labelClass("enroute", stage)}`}
-            >
-              {t("stageEnroute")}
+            <div className="flex flex-col gap-px pb-[22px]">
+              <div
+                className={`text-[15px] font-medium ${labelClass("enroute", stage)}`}
+              >
+                {t("stageEnroute")}
+              </div>
+              {/* Who is actually coming. First name only — the tracking link is
+                  shareable, a driver's full identity should not be. */}
+              {driverName && stage === "enroute" && (
+                <div className="text-[13px] text-stone-muted">
+                  {t("driverOnWay", { name: driverName })}
+                </div>
+              )}
             </div>
           </div>
           <div className="flex gap-3.5">
             <div className="flex w-4 flex-col items-center">
               <TimelineDot state={dotFor("delivered", stage)} />
             </div>
-            <div className={`text-[15px] font-medium ${labelClass("delivered", stage)}`}>
+            <div
+              className={`text-[15px] font-medium ${labelClass("delivered", stage)}`}
+            >
               {t("stageDelivered")}
             </div>
           </div>
@@ -210,12 +233,16 @@ export function ConfirmScreen({
 
         {/* recap */}
         <div className="flex flex-col gap-2 rounded-[14px] border border-hair bg-app px-4 py-4">
-          <div className="text-[15px] leading-normal text-stone-ink">{order}</div>
+          <div className="text-[15px] leading-normal text-stone-ink">
+            {order}
+          </div>
           <div className="text-[14px] text-stone-muted">{commerceName}</div>
           {fee !== null && (
             <div className="text-[14px] text-stone-muted">
               {t("recapFee")}{" "}
-              <span className="font-semibold text-amber">{formatDinar(fee)}</span>
+              <span className="font-semibold text-amber">
+                {formatDinar(fee)}
+              </span>
             </div>
           )}
         </div>

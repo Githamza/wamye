@@ -256,6 +256,19 @@ function buildPayload(
     adhoc: ctx.adhoc,
   };
   if (ctx.orderType) payload.type = ctx.orderType;
+
+  // Per-order adhoc radius: it governs ONLY the dispatch-time push
+  // (HandleOrderDispatched → Order::getAdhocDistance()), never what Navigator's
+  // "orders near me" list shows — that radius comes from the company option, see
+  // @/lib/fleetbase-admin. And this instance cannot push to the store build of
+  // Navigator at all (@/lib/order-alert-email), so today the value is inert and
+  // the admin form no longer exposes it; `tenants.fleetbase_adhoc_distance` is
+  // only ever set by hand, for testing far from the pickup.
+  //
+  // TODO: if we ever ship our own Navigator APK — with our Firebase identity, so
+  // the push actually lands — put the "Rayon diffusion (m)" field back in
+  // admin/tenants/new + [id] and re-add the column to the two write paths in
+  // @/lib/actions/tenants (removed 2026-08-03, see git history).
   if (ctx.adhoc && ctx.adhocDistance) payload.adhoc_distance = ctx.adhocDistance;
 
   return payload;

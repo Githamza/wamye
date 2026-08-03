@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { slugify } from "@/lib/slug";
+import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { sendSignupReceivedEmail } from "@/lib/auth/approval-email";
 
 /**
@@ -19,7 +20,6 @@ export async function signupDriver(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
-  const supportPhone = String(formData.get("supportPhone") ?? "").trim();
   const areaLabel = String(formData.get("areaLabel") ?? "").trim();
   // Accept "@handle", a bare handle, or a full profile URL — keep just the handle.
   const instagram = String(formData.get("instagram") ?? "")
@@ -30,6 +30,19 @@ export async function signupDriver(formData: FormData) {
 
   if (!name || !email || password.length < 8) {
     redirect("/signup?error=missing");
+  }
+
+  // The phone is required, not cosmetic: it is what registers this person as a
+  // Fleetbase driver at approval, and a tenant whose owner has no number can be
+  // approved but never dispatched to.
+  //
+  // Validated and STORED as the 8 local digits — normalizePhone also absorbs
+  // whatever the browser let through (spaces, a pasted prefix the client-side
+  // field missed). Everything downstream that needs E.164 goes through
+  // toInternationalPhone, which puts the tenant's dial code back on.
+  const supportPhone = normalizePhone(String(formData.get("supportPhone") ?? ""));
+  if (!isValidPhone(supportPhone)) {
+    redirect("/signup?error=phone");
   }
 
   const supabase = createAdminClient();

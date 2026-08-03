@@ -27,11 +27,11 @@ import {
   setCompanyAdhocDistance,
 } from "@/lib/fleetbase-admin";
 import type { TenantPublicConfig } from "@/lib/config-types";
-import type { CreateOrderInput, CreatedOrder } from "@/lib/order-types";
 
 export function isSupabaseConfigured(): boolean {
   return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 }
 
@@ -104,10 +104,9 @@ export async function listPublicTenants(): Promise<TenantSummary[]> {
   return (data ?? []).map((row) => ({
     slug: row.slug as string,
     name: row.name as string,
-    branding:
-      (row.branding as TenantPublicConfig["branding"] | null) ?? {
-        name: row.name as string,
-      },
+    branding: (row.branding as TenantPublicConfig["branding"] | null) ?? {
+      name: row.name as string,
+    },
     hours: row.hours as TenantPublicConfig["hours"],
   }));
 }
@@ -202,7 +201,8 @@ export async function syncCompanyAdhocDistance(
 
     if (!secret?.fleetbase_api_key_encrypted) return null;
 
-    const apiUrl = (row?.fleetbase_api_url as string | null) ?? defaultFleetbaseApiUrl();
+    const apiUrl =
+      (row?.fleetbase_api_url as string | null) ?? defaultFleetbaseApiUrl();
     const apiKey = decryptSecret(secret.fleetbase_api_key_encrypted as string);
 
     // The tenant→company mapping lives in the key itself, not in our schema.
@@ -215,7 +215,10 @@ export async function syncCompanyAdhocDistance(
       apiUrl,
     );
   } catch (err) {
-    console.error("[tenant] adhoc distance sync failed:", (err as Error).message);
+    console.error(
+      "[tenant] adhoc distance sync failed:",
+      (err as Error).message,
+    );
     return null;
   }
 }
@@ -266,6 +269,49 @@ export async function getPageConfig(
   return null;
 }
 
+/**
+ * The tenant an incoming order claims to belong to — resolved and *validated*.
+ *
+ * POST /api/orders is necessarily public (the customer is anonymous), and the
+ * slug therefore comes from the browser. That is not itself the problem: the
+ * customer legitimately picks the shop by opening /t/[slug]. The problem was
+ * that nothing checked it, so an order could be filed against a tenant still
+ * awaiting approval. Both flags are required, exactly like listPublicTenants.
+ */
+export type OrderTenant = {
+  id: string;
+  slug: string;
+  zone: TenantPublicConfig["zone"];
+  feeConfig: TenantPublicConfig["feeConfig"];
+};
+
+export async function getTenantForOrder(
+  slug: string,
+): Promise<OrderTenant | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("tenants")
+    .select("id, slug, zone, fee_config")
+    .eq("slug", slug)
+    .eq("is_active", true)
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (error) {
+    console.error("[tenant] order-tenant fetch failed:", error.message);
+    return null;
+  }
+  if (!data) return null;
+
+  return {
+    id: data.id as string,
+    slug: data.slug as string,
+    zone: data.zone as TenantPublicConfig["zone"],
+    feeConfig: data.fee_config as TenantPublicConfig["feeConfig"],
+  };
+}
+
 /** The tenant's uuid for a slug, or null. */
 export async function getTenantIdBySlug(slug: string): Promise<string | null> {
   if (!isSupabaseConfigured()) return null;
@@ -273,52 +319,6 @@ export async function getTenantIdBySlug(slug: string): Promise<string | null> {
   return row?.id ?? null;
 }
 
-/**
- * Best-effort: mirror a created order into the dashboard `orders` table and
- * upsert the customer into `clients`. Never throws — a mirror failure must
- * not fail the customer's order (Fleetbase is the source of truth).
- */
-export async function recordOrderMirror(
-  tenantId: string,
-  input: CreateOrderInput,
-  created: CreatedOrder,
-): Promise<void> {
-  try {
-    const supabase = createAdminClient();
-
-    let clientId: string | null = null;
-    // Only set name/landmark when provided, so a later order without a prénom
-    // doesn't wipe a returning customer's saved name (omitted columns are
-    // preserved by ON CONFLICT DO UPDATE).
-    const clientRow: Record<string, unknown> = {
-      tenant_id: tenantId,
-      phone: input.phone,
-    };
-    if (input.prenom?.trim()) clientRow.name = input.prenom.trim();
-    if (input.repere?.trim()) clientRow.last_repere = input.repere.trim();
-    const { data: client } = await supabase
-      .from("clients")
-      .upsert(clientRow, { onConflict: "tenant_id,phone" })
-      .select("id")
-      .maybeSingle();
-    clientId = (client?.id as string) ?? null;
-
-    await supabase.from("orders").insert({
-      tenant_id: tenantId,
-      fleetbase_id: created.id,
-      tracking_number: created.trackingNumber,
-      status: created.status,
-      stage: created.stage,
-      client_id: clientId,
-      phone: input.phone,
-      commerce_name: input.commerceName,
-      order_text: input.order,
-      fee: input.fee,
-      distance_km: input.distanceKm,
-      quote_source: input.quoteSource ?? "estimate",
-      position: input.position,
-    });
-  } catch (err) {
-    console.error("[tenant] order mirror failed:", (err as Error).message);
-  }
-}
+// Order persistence moved to @/lib/orders (createOrderRecord): Supabase is the
+// source of truth now, so writing the order is no longer a best-effort mirror
+// this module can own on the side.

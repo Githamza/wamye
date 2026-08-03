@@ -14,6 +14,7 @@
 // ============================================================
 
 import type { OrderStage } from "@/lib/order-types";
+import type { OrderState } from "@/lib/order-status";
 
 /** Tenants and team members share one lifecycle vocabulary. */
 export type AccountStatus = "pending" | "active" | "suspended";
@@ -55,6 +56,36 @@ const STATUS_LABEL: Record<string, Record<AccountStatus, string>> = {
 export function stageLabel(stage: string, locale: string = "fr"): string {
   const map = STAGE_LABEL[locale] ?? STAGE_LABEL.fr;
   return map[stage as OrderStage] ?? stage;
+}
+
+/**
+ * The label for a driver-side course state (orders.state). Six values where the
+ * customer sees four: a driver needs to tell "récupérée" from "acceptée", and
+ * the tenant needs to tell an abandoned course from a cancelled one.
+ */
+const STATE_LABEL: Record<string, Record<OrderState, string>> = {
+  fr: {
+    pending: "À prendre",
+    accepted: "Acceptée",
+    picked_up: "Récupérée",
+    delivered: "Livrée",
+    problem: "Problème",
+    canceled: "Annulée",
+  },
+  "ar-TN": {
+    pending: "متاحة",
+    accepted: "مقبولة",
+    picked_up: "تسلّمها",
+    delivered: "وصلت",
+    problem: "مشكل",
+    canceled: "تلغات",
+  },
+};
+
+export function stateLabel(state: string | null, locale: string = "fr"): string {
+  if (!state) return "—";
+  const map = STATE_LABEL[locale] ?? STATE_LABEL.fr;
+  return map[state as OrderState] ?? state;
 }
 
 /** The label for a tenant or team-member status, falling back to itself. */

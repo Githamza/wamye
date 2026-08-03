@@ -7,7 +7,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Check } from "lucide-react";
 import { CommerceCombo } from "@/components/commerce-combo";
-import { DeliveryBlock, type DeliveryStatus } from "@/components/delivery-block";
+import {
+  DeliveryBlock,
+  type DeliveryStatus,
+} from "@/components/delivery-block";
 import { ConfirmScreen } from "@/components/confirm-screen";
 import { ClosedOverlay } from "@/components/closed-overlay";
 import { LocaleSwitcher } from "@/components/locale-switcher";
@@ -22,7 +25,7 @@ import {
   nextCourseNumber,
   saveLastOrder,
 } from "@/lib/storage";
-import type { ApiErrorBody, Quote } from "@/lib/order-types";
+import type { ApiErrorBody, CreatedOrder, Quote } from "@/lib/order-types";
 
 type Screen = "order" | "confirm";
 
@@ -74,14 +77,18 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
   const [fee, setFee] = useState<number | null>(null);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const [durationMin, setDurationMin] = useState<number | null>(null);
-  const [quoteSource, setQuoteSource] = useState<"road" | "estimate">("estimate");
+  const [quoteSource, setQuoteSource] = useState<"road" | "estimate">(
+    "estimate",
+  );
   const [quoting, setQuoting] = useState(false);
-  const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null);
+  const [position, setPosition] = useState<{ lat: number; lng: number } | null>(
+    null,
+  );
 
   // ---- screen / meta state ----
   const [screen, setScreen] = useState<Screen>("order");
   const [courseNumber, setCourseNumber] = useState(47);
-  const [orderId, setOrderId] = useState<string | null>(null);
+  const [trackingToken, setTrackingToken] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [returning, setReturning] = useState<LastOrder | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -232,7 +239,8 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
    * the reader a raw identifier.
    */
   function toastSubmitFailed(code?: string) {
-    const headline = code && tApiError.has(code) ? tApiError(code) : t("sendFailed");
+    const headline =
+      code && tApiError.has(code) ? tApiError(code) : t("sendFailed");
     toast.error(headline, {
       description: t("sendFailedDescription"),
       action: { label: t("retry"), onClick: () => submitOrder() },
@@ -257,7 +265,10 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
           order: order.trim(),
           commerceName: commerceLabel,
           commerceAddr: commerce?.addr ?? null,
-          commercePosition: commerce && { lat: commerce.lat, lng: commerce.lng },
+          commercePosition: commerce && {
+            lat: commerce.lat,
+            lng: commerce.lng,
+          },
           repere: repere.trim(),
           phone,
           prenom: prenom.trim(),
@@ -269,16 +280,18 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
       });
 
       if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as Partial<ApiErrorBody> | null;
+        const data = (await res
+          .json()
+          .catch(() => null)) as Partial<ApiErrorBody> | null;
         toastSubmitFailed(data?.error);
         return;
       }
 
-      const created = (await res.json()) as { id: string };
+      const created = (await res.json()) as CreatedOrder;
 
       const course = nextCourseNumber(config.slug);
       setCourseNumber(course);
-      setOrderId(created.id);
+      setTrackingToken(created.trackingToken ?? null);
       saveLastOrder(config.slug, {
         order: order.trim(),
         commerce,
@@ -303,7 +316,10 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
     // as-is; the rest of the form still prefills and the customer just picks
     // the shop again.
     if (returning.commerce) setCommerce(returning.commerce);
-    bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: "smooth" });
+    bodyRef.current?.scrollTo({
+      top: bodyRef.current.scrollHeight,
+      behavior: "smooth",
+    });
     toast(t(returning.commerce ? "reorderToast" : "reorderToastNoCommerce"));
   }
 
@@ -455,7 +471,9 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
                 <div
                   dir="ltr"
                   className={`relative flex h-12 items-stretch overflow-hidden rounded-[10px] border ${
-                    phoneFocus ? "border-brand ring-[3px] ring-brand/15" : "border-hair"
+                    phoneFocus
+                      ? "border-brand ring-[3px] ring-brand/15"
+                      : "border-hair"
                   }`}
                 >
                   <div className="flex flex-none items-center border-e border-hair bg-hair-2 px-3 text-[15px] text-stone-muted">
@@ -472,7 +490,10 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
                     className="min-w-0 flex-1 bg-white px-3.5 pe-10 text-[15px] text-stone-ink outline-none"
                   />
                   {phoneValid && (
-                    <Check className="absolute end-3 top-1/2 size-5 -translate-y-1/2 text-success" strokeWidth={2} />
+                    <Check
+                      className="absolute end-3 top-1/2 size-5 -translate-y-1/2 text-success"
+                      strokeWidth={2}
+                    />
                   )}
                 </div>
                 <div className="relative">
@@ -484,7 +505,10 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
                     className="h-12 rounded-[10px] pe-10 text-[15px]"
                   />
                   {prenom.trim() !== "" && (
-                    <Check className="absolute end-3 top-1/2 size-5 -translate-y-1/2 text-success" strokeWidth={2} />
+                    <Check
+                      className="absolute end-3 top-1/2 size-5 -translate-y-1/2 text-success"
+                      strokeWidth={2}
+                    />
                   )}
                 </div>
               </section>
@@ -512,8 +536,7 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
         {/* ---------- CONFIRM SCREEN ---------- */}
         {screen === "confirm" && (
           <ConfirmScreen
-            orderId={orderId}
-            slug={config.slug}
+            trackingToken={trackingToken}
             brandName={config.branding.name}
             courseNumber={courseNumber}
             order={order.trim()}

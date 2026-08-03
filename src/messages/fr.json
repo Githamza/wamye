@@ -144,7 +144,8 @@
     "pwaPrompt": "Ajoutez {name} à votre écran d'accueil pour recommander en 2 taps",
     "pwaFallbackName": "cette app",
     "pwaAdd": "Ajouter",
-    "pwaDismiss": "Fermer"
+    "pwaDismiss": "Fermer",
+    "driverOnWay": "{name} est en route."
   },
   "Closed": {
     "body": "Laissez votre numéro, on vous prévient à l'ouverture",
@@ -155,11 +156,12 @@
   },
   "Dashboard": {
     "nav": {
-      "orders": "Commandes",
+      "orders": "Courses",
       "stats": "Statistiques",
       "clients": "Clients",
       "team": "Équipe",
-      "settings": "Réglages"
+      "settings": "Réglages",
+      "history": "Historique"
     },
     "header": {
       "fallbackTitle": "Tableau de bord",
@@ -228,6 +230,7 @@
       "errorFallback": "Une erreur est survenue.",
       "errorMissing": "Nom, e-mail, téléphone et un mot de passe d'au moins 8 caractères sont requis.",
       "errorEmail": "Cet e-mail est déjà utilisé.",
+      "errorPhone": "Numéro invalide : 8 chiffres commençant par 2, 4, 5 ou 9 (sans l'indicatif).",
       "errorInsert": "Impossible de créer le livreur. Réessayez.",
       "errorForbidden": "Ce livreur ne fait pas partie de votre équipe.",
       "errorPending": "Ce livreur attend encore la validation d'un administrateur.",
@@ -260,7 +263,9 @@
       "noKey": "Compte pas encore connecté par l'administrateur.",
       "emailNotFound": "E-mail introuvable.",
       "failed": "Échec de l'activation.",
-      "failedDetail": "Échec ({status}) : {message}"
+      "failedDetail": "Échec ({status}) : {message}",
+      "phoneTaken": "Ce numéro appartient déjà à un autre compte Fleetbase (les comptes sont uniques sur toute l'instance). Changez le numéro ou libérez l'ancien compte.",
+      "emailTaken": "Cet e-mail appartient déjà à un autre compte Fleetbase (les comptes sont uniques sur toute l'instance). Changez l'e-mail ou libérez l'ancien compte."
     },
     "navigator": {
       "title": "Connexion de l'application Navigator",
@@ -270,6 +275,61 @@
       "whatsapp": "Envoyer sur WhatsApp",
       "waText": "Pour recevoir les livraisons, ouvre ce lien sur ton téléphone et suis les étapes : {url}",
       "qrHint": "Ou scannez ce code avec l'appareil photo du téléphone du livreur."
+    },
+    "course": {
+      "unknownShop": "Commerce",
+      "away": "à {km} km",
+      "landmark": "Repère",
+      "distance": "Trajet",
+      "openPickup": "Aller au commerce",
+      "openDropoff": "Aller chez le client",
+      "callCustomer": "Appeler le client",
+      "mine": "Ma course",
+      "available": "Courses à prendre ({count})",
+      "empty": "Aucune course pour le moment.",
+      "accept": "Accepter",
+      "finishFirst": "Termine ta course en cours",
+      "showAll": "Voir {count} course(s) plus loin",
+      "markPickedUp": "J'ai récupéré la commande",
+      "markDelivered": "Livrée",
+      "giveUp": "Abandonner la course",
+      "proofAdd": "Ajouter une photo (facultatif)",
+      "proofUploading": "Envoi de la photo…",
+      "proofDone": "Photo ajoutée",
+      "proofFailed": "La photo n'est pas partie. Tu peux livrer quand même.",
+      "gpsSharing": "Position partagée avec le client.",
+      "gpsWaiting": "Recherche de ta position…",
+      "gpsDenied": "Position désactivée — le client ne te verra pas sur la carte.",
+      "takenByOther": "Course déjà prise par un autre livreur.",
+      "actionFailed": "L'action n'a pas abouti. Réessaie.",
+      "decline": "Je ne prends pas",
+      "declineTitle": "Pourquoi tu ne prends pas cette course ?",
+      "declineReason": {
+        "too_far": "Trop loin",
+        "busy": "Je suis déjà occupé",
+        "shop_closed": "Le commerce est fermé",
+        "fee_too_low": "Prix trop bas",
+        "end_of_shift": "Je termine ma journée",
+        "other": "Autre raison"
+      },
+      "declineNotePlaceholder": "Explique en quelques mots…",
+      "declineBack": "Retour",
+      "declineConfirm": "Confirmer",
+      "declined": "Course retirée de ta liste.",
+      "reasonMissing": "Choisis une raison, et écris-la si tu mets « Autre »."
+    },
+    "push": {
+      "title": "Notifications",
+      "on": "Activées — tu seras prévenu des nouvelles courses.",
+      "off": "Désactivées. Tu ne seras pas prévenu des nouvelles courses.",
+      "denied": "Bloquées dans les réglages de ton navigateur. Réactive-les depuis le cadenas dans la barre d’adresse.",
+      "installFirst": "Installe l’application sur ton écran d’accueil pour recevoir les notifications.",
+      "enable": "Activer",
+      "disable": "Désactiver",
+      "iosStep1": "Appuie sur Partager, en bas de Safari.",
+      "iosStep2": "Choisis « Sur l’écran d’accueil », puis rouvre l’app depuis l’icône.",
+      "androidStep1": "Ouvre le menu du navigateur.",
+      "androidStep2": "Choisis « Installer l’application », puis rouvre-la depuis l’icône."
     }
   },
   "Connect": {
@@ -310,6 +370,7 @@
     "create-failed": "Échec de l'envoi de la commande. Réessayez.",
     "tracking-unavailable": "Suivi indisponible.",
     "unknown": "Échec de l'envoi — réessayez",
-    "commerce-not-located": "Commerce non localisé. Choisissez-le dans la liste des suggestions."
+    "commerce-not-located": "Commerce non localisé. Choisissez-le dans la liste des suggestions.",
+    "too-many-orders": "Trop de commandes en peu de temps. Réessayez dans quelques minutes."
   }
 }

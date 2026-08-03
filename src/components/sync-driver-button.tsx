@@ -13,6 +13,8 @@ const MESSAGE_KEY: Record<SyncCode, string> = {
   "member-not-found": "memberNotFound",
   forbidden: "forbidden",
   "phone-missing": "phoneMissing",
+  "phone-taken": "phoneTaken",
+  "email-taken": "emailTaken",
   "no-fleetbase-key": "noKey",
   "email-not-found": "emailNotFound",
   "fleetbase-error": "failed",

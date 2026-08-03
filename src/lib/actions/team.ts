@@ -6,8 +6,9 @@ import { getProfile, requireOwner, requireRole } from "@/lib/auth/dal";
 import { sendAccountReadyEmail } from "@/lib/auth/approval-email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getTenantFleetbaseContext } from "@/lib/tenant";
-import { toInternationalPhone } from "@/lib/phone";
+import { isValidPhone, normalizePhone, toInternationalPhone } from "@/lib/phone";
 import { createFleetbaseClient, FleetbaseError } from "@/lib/fleetbase";
+import { checkIdentityConflict } from "@/lib/fleetbase-admin";
 import { navigatorConnectUrl } from "@/lib/navigator-link";
 
 /**
@@ -31,6 +32,10 @@ export type SyncCode =
   | "member-not-found"
   | "forbidden"
   | "phone-missing"
+  /** This email/phone already belongs to a Fleetbase user in ANOTHER company —
+   *  they are unique instance-wide, so the driver cannot be created as-is. */
+  | "email-taken"
+  | "phone-taken"
   | "no-fleetbase-key"
   | "email-not-found"
   | "fleetbase-error"
@@ -57,11 +62,16 @@ export async function addSubDriver(formData: FormData) {
 
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const phone = String(formData.get("phone") ?? "").trim();
+  // Stored as the 8 local digits, like every other number we keep; the E.164
+  // form is derived at the Fleetbase call (toInternationalPhone, below).
+  const phone = normalizePhone(String(formData.get("phone") ?? ""));
   const password = String(formData.get("password") ?? "");
 
-  if (!name || !email || !phone || password.length < 8) {
+  if (!name || !email || password.length < 8) {
     redirect("/dashboard/team?error=missing");
+  }
+  if (!isValidPhone(phone)) {
+    redirect("/dashboard/team?error=phone");
   }
 
   const supabase = createAdminClient();
@@ -105,8 +115,8 @@ export async function addSubDriver(formData: FormData) {
  */
 export async function updateOwnPhone(formData: FormData) {
   const owner = await requireOwner();
-  const phone = String(formData.get("phone") ?? "").trim();
-  if (!phone) redirect("/dashboard/team?error=missing");
+  const phone = normalizePhone(String(formData.get("phone") ?? ""));
+  if (!isValidPhone(phone)) redirect("/dashboard/team?error=phone");
 
   const supabase = createAdminClient();
   await supabase.from("profiles").update({ phone }).eq("id", owner.id);
@@ -219,28 +229,56 @@ export async function syncDriverToFleetbase(profileId: string): Promise<SyncResu
   if (!email) return { ok: false, code: "email-not-found" };
 
   const fleetbase = createFleetbaseClient(ctx);
+  const phone = toInternationalPhone(
+    profile.phone as string,
+    (tenant?.phone_country as string | null) ?? "TN",
+  );
+
+  // Fleetbase users are unique instance-wide. A person already registered
+  // under ANOTHER organization cannot be created here, so say which
+  // identifier is the problem instead of surfacing a bare 422 — but only
+  // after ruling out this tenant's own driver record, which a re-sync is
+  // meant to adopt rather than report as a conflict.
+  const adoptable = await fleetbase.findDriverByEmail(email);
+  if (!adoptable) {
+    const conflict = await checkIdentityConflict({ email, phone }, ctx.apiUrl);
+    if (conflict.email) return { ok: false, code: "email-taken" };
+    if (conflict.phone) return { ok: false, code: "phone-taken" };
+  }
+
   try {
     let driver: { id: string };
     let code: SyncCode = "created";
-    try {
-      driver = await fleetbase.createDriver({
-        name: (profile.name as string | null) ?? email,
-        email,
-        phone: toInternationalPhone(
-          profile.phone as string,
-          (tenant?.phone_country as string | null) ?? "TN",
-        ),
-      });
-    } catch (err) {
-      // "Email already taken" means Fleetbase knows this person — typically
-      // the owner, whose address was used for the company's admin user. If a
-      // driver record already exists for it, adopt that record instead of
-      // failing; if only the *user* exists, rethrow so the 422 stays visible.
-      if (!(err instanceof FleetbaseError) || err.status !== 422) throw err;
-      const existing = await fleetbase.findDriverByEmail(email);
-      if (!existing) throw err;
-      driver = existing;
+
+    if (adoptable) {
+      // Already known to this company — typically the owner, whose address was
+      // used for the company's admin user. Adopt the record instead of failing.
+      driver = adoptable;
       code = "linked";
+    } else {
+      // The probe above is advisory (it only sees what the validator knows),
+      // so a 422 here is still possible — a soft-deleted user, say. Translate
+      // it rather than letting the raw upstream text reach the page.
+      //
+      // Fleetbase mails an "invited to join <company>" notification from
+      // User::assignCompany() on this call, with no way to opt out from the
+      // API. It is silenced on the instance itself: core-api's
+      // sendInviteFromCompany() is patched to bail out when
+      // storage/app/noinv exists. See docs/fleetbase-patches.md — if that
+      // patch is ever lost, these invitations come back.
+      try {
+        driver = await fleetbase.createDriver({
+          name: (profile.name as string | null) ?? email,
+          email,
+          phone,
+        });
+      } catch (err) {
+        if (!(err instanceof FleetbaseError) || err.status !== 422) throw err;
+        const taken = err.message.toLowerCase();
+        if (taken.includes("phone")) return { ok: false, code: "phone-taken" };
+        if (taken.includes("email")) return { ok: false, code: "email-taken" };
+        throw err;
+      }
     }
 
     await supabase

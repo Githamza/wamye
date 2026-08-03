@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireOwner } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncCompanyAdhocDistance } from "@/lib/tenant";
+import { normalizePhone } from "@/lib/phone";
 
 function num(v: FormDataEntryValue | null): number | null {
   const n = Number(String(v ?? "").trim());
@@ -27,7 +28,10 @@ export async function updateGeneral(formData: FormData) {
   const branding = {
     name: String(formData.get("name") ?? "").trim(),
     areaLabel: String(formData.get("areaLabel") ?? "").trim() || undefined,
-    supportPhone: String(formData.get("supportPhone") ?? "").trim() || undefined,
+    // Normalised, never rejected: an owner clearing or fat-fingering their
+    // support number must not block a zone or fee save. The number that has to
+    // be valid is the one on their profile, which the Team page owns.
+    supportPhone: normalizePhone(String(formData.get("supportPhone") ?? "")) || undefined,
     logoEmoji: String(formData.get("logoEmoji") ?? "").trim() || undefined,
   };
   const zone = {

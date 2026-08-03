@@ -26,6 +26,7 @@ export type ApiErrorCode =
   | "incomplete-order"
   | "commerce-not-located"
   | "orders-unavailable"
+  | "too-many-orders"
   | "create-failed"
   | "tracking-unavailable";
 
@@ -82,16 +83,70 @@ export type CreateOrderInput = {
   position: LatLng | null;
 };
 
-/** What POST /api/orders returns once the order exists in Fleetbase. */
+/** What POST /api/orders returns once the order exists. */
 export type CreatedOrder = {
-  /** Fleetbase public id, e.g. "order_xxx". */
+  /** Fleetbase public id, e.g. "order_xxx". Becomes the Supabase uuid at cutover. */
   id: string;
   trackingNumber: string | null;
   status: string;
   stage: OrderStage;
+  /**
+   * Unguessable capability for the customer's tracking page. It IS the
+   * authorisation: /api/track/[token] needs nothing else, and there is no id to
+   * enumerate. Absent only on the legacy no-tenant path.
+   */
+  trackingToken?: string;
 };
 
-/** What GET /api/orders/[id] returns while polling for progress. */
+/** What GET /api/track/[token] returns — a projection, never the row. */
+export type TrackedOrder = {
+  stage: OrderStage;
+  state: string;
+  trackingNumber: string | null;
+  commerceName: string | null;
+  fee: number | null;
+  /** First name only: enough to recognise the driver, not to identify them. */
+  driverName: string | null;
+  /** Present while the course is running and the fix is fresh. */
+  driver: { lat: number; lng: number; at: string } | null;
+  pickup: LatLng | null;
+  dropoff: LatLng | null;
+  /** Short-lived signed URL, only once delivered. */
+  proofUrl: string | null;
+};
+
+/**
+ * A course as the driver PWA sees it. Selected straight from `orders` through
+ * RLS (orders_select_tenant), so the column names are the DB's on purpose —
+ * this crosses the Realtime boundary, where payloads arrive as raw rows.
+ */
+export type DriverOrder = {
+  id: string;
+  state: string;
+  created_at: string;
+  commerce_name: string | null;
+  commerce_addr: string | null;
+  order_text: string | null;
+  repere: string | null;
+  phone: string | null;
+  customer_name: string | null;
+  fee: number | null;
+  distance_km: number | null;
+  pickup_lat: number | null;
+  pickup_lng: number | null;
+  dropoff_lat: number | null;
+  dropoff_lng: number | null;
+  driver_id: string | null;
+};
+
+/**
+ * A Fleetbase order's status, as read by fleetbase.ts `getOrder`.
+ *
+ * No longer served over HTTP: GET /api/orders/[id] was deleted — it proxied
+ * Fleetbase with no ownership check, so any id was readable by anyone.
+ * /api/track/[token] replaced it. This type survives only until the cutover
+ * removes the Fleetbase client itself.
+ */
 export type OrderStatus = {
   id: string;
   status: string;
