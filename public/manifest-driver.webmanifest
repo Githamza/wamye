@@ -4,7 +4,7 @@
   "short_name": "Wamye Pro",
   "description": "Vos courses en temps réel : acceptez, récupérez, livrez.",
   "start_url": "/dashboard",
-  "scope": "/dashboard",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#FAFAF9",
   "theme_color": "#0F766E",

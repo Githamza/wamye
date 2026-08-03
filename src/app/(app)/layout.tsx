@@ -25,11 +25,21 @@ export const metadata: Metadata = {
   title: "Wamye — Livraison en Tunisie",
   description:
     "Trouvez un livreur près de chez vous. Repas, courses, pharmacie : un livreur confirme le prix avant achat, vous payez à la livraison.",
-  manifest: "/manifest.webmanifest",
+  /**
+   * The driver manifest, for the WHOLE (app) group — not just /dashboard.
+   *
+   * A driver installs the app from the page they are looking at, and that page
+   * is /login: they add it to the home screen before they have ever signed in.
+   * Declaring the customer manifest here meant the icon they got opened the
+   * customer ordering page at "/", which is exactly what happened.
+   *
+   * The customer surface keeps its own manifest in app/[lang]/layout.tsx.
+   */
+  manifest: "/manifest-driver.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Wamye",
+    title: "Wamye Pro",
   },
 };
 

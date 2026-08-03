@@ -8,16 +8,8 @@ import { Logo } from "@/components/logo";
 
 export const dynamic = "force-dynamic";
 
-/**
- * The driver app is its own installable PWA: start_url /dashboard, so launching
- * from the home screen lands on the feed rather than the customer order form.
- * Declared here rather than in the (app) root layout, which also serves /login,
- * /signup and /admin — the install prompt is only offered inside scope.
- */
-export const metadata = {
-  manifest: "/manifest-driver.webmanifest",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "Wamye Pro" },
-} satisfies import("next").Metadata;
+// The driver manifest is declared once, on the (app) root layout — /login has
+// to carry it too, since that is the page a driver installs from.
 
 // ownerOnly hides a tab from sub-drivers. Cosmetic only — requireOwner() inside
 // each of those pages is the actual gate.
