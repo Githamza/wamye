@@ -7,11 +7,13 @@ export const dynamic = "force-dynamic";
 
 /**
  * Where the livreurs are, nationally — the view a launch-by-city decision is
- * made on. Read-only by design: nothing here validates or suspends anyone, that
- * stays on the livreur's own page.
+ * made on, and the one place a whole city's accounts can be validated in a row.
  */
-export default async function AdminCoveragePage() {
+export default async function AdminCoveragePage(props: {
+  searchParams: Promise<{ gov?: string; done?: string; error?: string }>;
+}) {
   await requireRole("super_admin");
+  const { gov, done, error } = await props.searchParams;
   const livreurs = await loadCoverage();
 
   return (
@@ -33,7 +35,19 @@ export default async function AdminCoveragePage() {
         </Link>
       </div>
 
-      <CoverageBoard livreurs={livreurs} />
+      {done === "approved" && (
+        <div className="rounded-[10px] border border-brand-border bg-brand-bg px-4 py-2.5 text-[13px] text-brand-ink">
+          Compte validé — son tableau de bord et sa page publique sont ouverts,
+          et il en est prévenu par email.
+        </div>
+      )}
+      {error && (
+        <div className="rounded-[10px] border border-hair bg-white px-4 py-2.5 text-[13px] text-danger-ink">
+          La validation a échoué. Réessayez.
+        </div>
+      )}
+
+      <CoverageBoard livreurs={livreurs} initialGovKey={gov ?? null} />
     </div>
   );
 }

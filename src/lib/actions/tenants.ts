@@ -17,6 +17,25 @@ function num(v: FormDataEntryValue | null, fallback: number): number {
 }
 
 /**
+ * A caller-supplied return path, reduced to something safe to redirect to.
+ *
+ * It arrives in a form field, so it is attacker-controlled: only an admin path
+ * of our own is allowed through, and "//host" is rejected because the browser
+ * reads that as a protocol-relative URL to another site. Callers append
+ * `&done=…`, so the path is returned already carrying a query string.
+ */
+function safeReturn(value: FormDataEntryValue | null): string | null {
+  const raw = String(value ?? "").trim();
+  if (!raw.startsWith("/admin/") || raw.startsWith("//")) return null;
+  const [path, query] = raw.split("?", 2);
+  const params = new URLSearchParams(query ?? "");
+  // done/error belong to the redirect we are about to build, not to the caller.
+  params.delete("done");
+  params.delete("error");
+  return `${path}?${params.toString()}`;
+}
+
+/**
  * Provision a new tenant (super-admin only): the tenant row and a tenant_admin
  * login. No password is handled here: the new admin gets an email whose link
  * lets them set one (sendAccountReadyEmail).
@@ -221,6 +240,10 @@ export async function approveTenant(formData: FormData) {
   await requireRole("super_admin");
   const id = String(formData.get("id") ?? "");
   if (!id) return;
+  // Where to land afterwards. The coverage map approves a whole city in a row
+  // and must come back to that city, not to one livreur's page — see safeReturn
+  // for why the value is not trusted as given.
+  const returnTo = safeReturn(formData.get("returnTo"));
 
   const supabase = createAdminClient();
 
@@ -228,7 +251,7 @@ export async function approveTenant(formData: FormData) {
     .from("tenants")
     .update({ status: "active", is_active: true })
     .eq("id", id);
-  if (error) redirect(`/admin/tenants/${id}?error=save`);
+  if (error) redirect(returnTo ? `${returnTo}&error=save` : `/admin/tenants/${id}?error=save`);
 
   // Tell the owner their account is ready. No connection link any more: their
   // dashboard IS the driver app, and they are already signed in to it.
@@ -236,7 +259,8 @@ export async function approveTenant(formData: FormData) {
   if (email) await sendAccountReadyEmail(email, "approved");
 
   revalidatePath("/admin");
+  revalidatePath("/admin/carte");
   revalidatePath(`/admin/tenants/${id}`);
-  redirect(`/admin/tenants/${id}?done=approved`);
+  redirect(returnTo ? `${returnTo}&done=approved` : `/admin/tenants/${id}?done=approved`);
 }
 

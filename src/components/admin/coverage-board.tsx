@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { CoverageMap } from "@/components/admin/coverage-map";
+import { approveTenant } from "@/lib/actions/tenants";
 import {
   groupByGovernorate,
   splitUnplaced,
@@ -62,7 +64,26 @@ function Stat({ value, label }: { value: string; label: string }) {
   );
 }
 
-function LivreurRow({ livreur }: { livreur: Livreur }) {
+/** The button's own pending state — a validation sends an email, so a
+ *  double-click must not be able to send two. */
+function ApproveButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="rounded-[8px] bg-brand px-2.5 py-1 text-[12px] font-semibold text-white hover:bg-brand-hover disabled:opacity-60"
+    >
+      {pending ? "Validation…" : "Valider"}
+    </button>
+  );
+}
+
+/**
+ * @param returnTo where approval should land — this page, on this city, so a
+ *   super-admin can open a whole governorate without losing their place.
+ */
+function LivreurRow({ livreur, returnTo }: { livreur: Livreur; returnTo: string }) {
   const also = livreur.alsoGovKeys
     .map((key) => governorate(key)?.name)
     .filter(Boolean)
@@ -111,14 +132,23 @@ function LivreurRow({ livreur }: { livreur: Livreur }) {
           {livreur.positionAgeMin != null && <span>vu il y a {livreur.positionAgeMin} min</span>}
         </div>
       </div>
-      {livreur.phone && (
-        <a
-          href={`tel:${livreur.phone}`}
-          className="shrink-0 rounded-[8px] border border-hair px-2.5 py-1 text-[12px] font-medium text-brand hover:bg-hair-2"
-        >
-          {livreur.phone}
-        </a>
-      )}
+      <div className="flex shrink-0 items-center gap-2">
+        {livreur.phone && (
+          <a
+            href={`tel:${livreur.phone}`}
+            className="rounded-[8px] border border-hair px-2.5 py-1 text-[12px] font-medium text-brand hover:bg-hair-2"
+          >
+            {livreur.phone}
+          </a>
+        )}
+        {livreur.status === "pending" && (
+          <form action={approveTenant}>
+            <input type="hidden" name="id" value={livreur.tenantId} />
+            <input type="hidden" name="returnTo" value={returnTo} />
+            <ApproveButton />
+          </form>
+        )}
+      </div>
     </li>
   );
 }
@@ -171,13 +201,31 @@ function RegionRow({
   );
 }
 
-export function CoverageBoard({ livreurs }: { livreurs: Livreur[] }) {
+export function CoverageBoard({
+  livreurs,
+  initialGovKey,
+}: {
+  livreurs: Livreur[];
+  /** From ?gov= — carries the selection across an approval's redirect. */
+  initialGovKey?: string | null;
+}) {
   const regions = useMemo(() => groupByGovernorate(livreurs), [livreurs]);
   const unplaced = useMemo(() => splitUnplaced(livreurs), [livreurs]);
 
   // Opens on the biggest governorate: the page is a launch decision, and the
   // top of the ranking is where that decision starts.
-  const [selectedKey, setSelectedKey] = useState<string | null>(regions[0]?.gov.key ?? null);
+  // An unknown ?gov= (a hand-edited URL, or a governorate that has since gone
+  // empty) falls back to the top of the ranking rather than selecting nothing.
+  const [selectedKey, setSelectedKey] = useState<string | null>(
+    (initialGovKey && regions.some((r) => r.gov.key === initialGovKey)
+      ? initialGovKey
+      : regions[0]?.gov.key) ?? null,
+  );
+
+  // Approval is a server action that redirects; sending it back here with the
+  // city in the URL is what keeps the list under the cursor instead of jumping
+  // to the top of the ranking.
+  const returnTo = `/admin/carte?gov=${selectedKey ?? ""}`;
 
   const maxTotal = regions.reduce((max, r) => Math.max(max, r.total), 0);
   const placedCount = livreurs.filter((l) => l.govKey !== null).length;
@@ -249,7 +297,7 @@ export function CoverageBoard({ livreurs }: { livreurs: Livreur[] }) {
           </div>
           <ul>
             {selectedLivreurs.map((livreur) => (
-              <LivreurRow key={livreur.tenantId} livreur={livreur} />
+              <LivreurRow key={livreur.tenantId} livreur={livreur} returnTo={returnTo} />
             ))}
           </ul>
         </div>
@@ -275,7 +323,7 @@ export function CoverageBoard({ livreurs }: { livreurs: Livreur[] }) {
           </div>
           <ul>
             {[...unplaced.unknown, ...unplaced.abroad].map((livreur) => (
-              <LivreurRow key={livreur.tenantId} livreur={livreur} />
+              <LivreurRow key={livreur.tenantId} livreur={livreur} returnTo={returnTo} />
             ))}
           </ul>
         </div>
