@@ -347,7 +347,21 @@
       "step3OpenFromIcon": "Rouvre l’app depuis sa nouvelle icône, puis appuie sur Activer.",
       "later": "Plus tard",
       "deniedHowIos": "Réglages → Wamye Pro → Notifications → Autoriser.",
-      "deniedHowAndroid": "Réglages du téléphone → Applications → Wamye → Notifications."
+      "deniedHowAndroid": "Réglages du téléphone → Applications → Wamye → Notifications.",
+      "tutorial": {
+        "open": "Voir les étapes en images",
+        "title": "Installer Wamye Pro",
+        "close": "Fermer",
+        "counter": "Étape {step} sur {total}",
+        "prev": "Précédent",
+        "next": "Suivant",
+        "done": "Terminé",
+        "step1": "Dans Safari, appuie sur les trois points « … », en bas à droite de la barre d’adresse.",
+        "step2": "Dans le menu qui s’ouvre, choisis « Share ».",
+        "step3": "Appuie sur la flèche « View More » pour dérouler le reste des options.",
+        "step4": "Descends dans la liste et choisis « Add to Home Screen ».",
+        "step5": "Appuie sur « Add », en haut à droite. L’icône Wamye Pro apparaît sur ton écran d’accueil — ouvre l’app depuis elle."
+      }
     },
     "invite": {
       "title": "Inviter un livreur",

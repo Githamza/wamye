@@ -6,6 +6,7 @@ import {
   savePushSubscription,
   deletePushSubscription,
 } from "@/lib/actions/push";
+import { InstallTutorial } from "./install-tutorial";
 
 /**
  * Service worker registration and the notification opt-in.
@@ -61,6 +62,7 @@ export function PushSetup() {
   const [busy, setBusy] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [snoozed, setSnoozed] = useState(false);
+  const [tutorial, setTutorial] = useState(false);
 
   useEffect(() => {
     // Everything runs inside the async body: setting state synchronously in an
@@ -227,11 +229,27 @@ export function PushSetup() {
       </div>
 
       {needsInstall ? (
-        <ol className="flex list-decimal flex-col gap-1 ps-5 text-[13px] text-danger-ink">
-          <li>{isIOS ? t("iosStep1") : t("androidStep1")}</li>
-          <li>{isIOS ? t("iosStep2") : t("androidStep2")}</li>
-          <li>{t("step3OpenFromIcon")}</li>
-        </ol>
+        <>
+          <ol className="flex list-decimal flex-col gap-1 ps-5 text-[13px] text-danger-ink">
+            <li>{isIOS ? t("iosStep1") : t("androidStep1")}</li>
+            <li>{isIOS ? t("iosStep2") : t("androidStep2")}</li>
+            <li>{t("step3OpenFromIcon")}</li>
+          </ol>
+
+          {/* iOS only: the five screenshots are Safari's own menus, and showing
+              an iPhone walkthrough to an Android driver would send them looking
+              for a Share sheet their browser does not have. */}
+          {isIOS && (
+            <button
+              type="button"
+              onClick={() => setTutorial(true)}
+              className="flex h-11 items-center justify-center rounded-[10px] border border-danger-border bg-white text-[14px] font-semibold text-danger-ink"
+            >
+              {t("tutorial.open")}
+            </button>
+          )}
+          {tutorial && <InstallTutorial onClose={() => setTutorial(false)} />}
+        </>
       ) : (
         <button
           type="button"
