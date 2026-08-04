@@ -3,20 +3,29 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/dal";
-import { sendAccountReadyEmail, tenantOwnerEmail } from "@/lib/auth/approval-email";
+import {
+  sendAccountReadyEmail,
+  tenantOwnerEmail,
+} from "@/lib/auth/approval-email";
 import { syncDriverToFleetbase } from "@/lib/actions/team";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { encryptSecret } from "@/lib/crypto";
 import { slugify } from "@/lib/slug";
 import { normalizePhone, toInternationalPhone } from "@/lib/phone";
-import { getTenantFleetbaseContext, syncCompanyAdhocDistance } from "@/lib/tenant";
+import {
+  getTenantFleetbaseContext,
+  syncCompanyAdhocDistance,
+} from "@/lib/tenant";
 import { navigatorConnectUrl } from "@/lib/navigator-link";
 import {
   createFleetbaseClient,
   envFleetbaseContext,
   FleetbaseError,
 } from "@/lib/fleetbase";
-import { isFleetbaseAdminConfigured, provisionCompany } from "@/lib/fleetbase-admin";
+import {
+  isFleetbaseAdminConfigured,
+  provisionCompany,
+} from "@/lib/fleetbase-admin";
 
 function num(v: FormDataEntryValue | null, fallback: number): number {
   const n = Number(String(v ?? "").trim());
@@ -33,7 +42,9 @@ export async function createTenant(formData: FormData) {
 
   const slug = slugify(String(formData.get("slug") ?? ""));
   const name = String(formData.get("name") ?? "").trim();
-  const adminEmail = String(formData.get("adminEmail") ?? "").trim().toLowerCase();
+  const adminEmail = String(formData.get("adminEmail") ?? "")
+    .trim()
+    .toLowerCase();
 
   if (!slug || !name || !adminEmail) {
     redirect("/admin/tenants/new?error=missing");
@@ -53,7 +64,8 @@ export async function createTenant(formData: FormData) {
     name,
     logoEmoji: String(formData.get("logoEmoji") ?? "").trim() || "🛵",
     areaLabel: String(formData.get("areaLabel") ?? "").trim() || undefined,
-    supportPhone: normalizePhone(String(formData.get("supportPhone") ?? "")) || undefined,
+    supportPhone:
+      normalizePhone(String(formData.get("supportPhone") ?? "")) || undefined,
   };
   const zone = {
     centerLat: num(formData.get("centerLat"), 33.808),
@@ -71,7 +83,8 @@ export async function createTenant(formData: FormData) {
     alwaysOpen: formData.get("alwaysOpen") === "on",
   };
   const apiUrl = String(formData.get("apiUrl") ?? "").trim() || null;
-  const orderType = String(formData.get("orderType") ?? "").trim() || "storefront";
+  const orderType =
+    String(formData.get("orderType") ?? "").trim() || "storefront";
   const apiKey = String(formData.get("apiKey") ?? "").trim();
 
   // 1. tenant row
@@ -173,7 +186,8 @@ export type ProvisionResult = {
  * explicit retry — the same rule as syncDriverToFleetbase.
  */
 async function provisionTenantFleetbase(id: string): Promise<ProvisionResult> {
-  if (!isFleetbaseAdminConfigured()) return { ok: false, code: "not-configured" };
+  if (!isFleetbaseAdminConfigured())
+    return { ok: false, code: "not-configured" };
 
   const supabase = createAdminClient();
   const { data: t } = await supabase
@@ -227,7 +241,8 @@ async function provisionTenantFleetbase(id: string): Promise<ProvisionResult> {
     // A new company defaults to a 6 km adhoc radius, which would hide most of
     // the tenant's own zone from its drivers. See adhocDistanceForZone.
     const radiusKm = (t.zone as { radiusKm?: number } | null)?.radiusKm;
-    if (typeof radiusKm === "number") await syncCompanyAdhocDistance(id, radiusKm);
+    if (typeof radiusKm === "number")
+      await syncCompanyAdhocDistance(id, radiusKm);
 
     return { ok: true, code: "provisioned" };
   } catch (err) {
@@ -237,7 +252,9 @@ async function provisionTenantFleetbase(id: string): Promise<ProvisionResult> {
 }
 
 /** "Provisionner Fleetbase": the retry path when approval's attempt failed. */
-export async function provisionTenant(tenantId: string): Promise<ProvisionResult> {
+export async function provisionTenant(
+  tenantId: string,
+): Promise<ProvisionResult> {
   await requireRole("super_admin");
   const result = await provisionTenantFleetbase(tenantId);
   if (result?.ok) {
@@ -269,41 +286,25 @@ export async function approveTenant(formData: FormData) {
 
   const supabase = createAdminClient();
 
-  // Before the status flip, so the rest of approval finds a working company:
-  // syncDriverToFleetbase refuses to file a driver against a tenant with no key
-  // of its own, which is what used to make approval a three-step manual dance.
-  // Best-effort — a failure here leaves the account approved and the admin page
-  // offering a retry, rather than blocking validation on a Fleetbase outage.
-  const provisioned = await provisionTenantFleetbase(id);
-
+  // No Fleetbase company is created any more. Nothing reads that side, and
+  // Fleetbase refuses to delete a company by API — every approval was minting
+  // a permanent, unusable record.
   const { error } = await supabase
     .from("tenants")
     .update({ status: "active", is_active: true })
     .eq("id", id);
   if (error) redirect(`/admin/tenants/${id}?error=save`);
 
-  // Tell the owner their account is ready, with the Navigator connection
-  // link as the next step (best effort, see helper).
+  // Tell the owner their account is ready. No connection link any more: their
+  // dashboard IS the driver app, and they are already signed in to it.
   const email = await tenantOwnerEmail(id);
-  if (email) {
-    const connectUrl = await navigatorConnectUrl(id);
-    await sendAccountReadyEmail(email, "approved", connectUrl ?? undefined);
-  }
-
-  // The owner is in practice the first driver, so put them in the Fleetbase
-  // pool now rather than making them find the Team page. Best effort, same
-  // rule as sub-driver approval: approval stands even if the sync fails — the
-  // Team page keeps its retry button.
-  const owner = await tenantOwnerProfileId(id);
-  if (owner) await syncDriverToFleetbase(owner);
+  if (email) await sendAccountReadyEmail(email, "approved");
 
   revalidatePath("/admin");
   revalidatePath(`/admin/tenants/${id}`);
   // Say which of the two happened: the admin needs to know when the account is
   // live but its Fleetbase side still has to be retried.
-  redirect(
-    `/admin/tenants/${id}?done=${provisioned?.ok ? "approved" : "approved-no-fleetbase"}`,
-  );
+  redirect(`/admin/tenants/${id}?done=approved`);
 }
 
 /**
@@ -349,7 +350,8 @@ export async function updateTenantFleetbase(formData: FormData) {
       .eq("id", id)
       .maybeSingle();
     const radiusKm = (t?.zone as { radiusKm?: number } | null)?.radiusKm;
-    if (typeof radiusKm === "number") await syncCompanyAdhocDistance(id, radiusKm);
+    if (typeof radiusKm === "number")
+      await syncCompanyAdhocDistance(id, radiusKm);
   }
 
   revalidatePath(`/admin/tenants/${id}`);
@@ -368,7 +370,9 @@ export type TestResult = {
 } | null;
 
 /** "Test connection": validate a tenant's stored Fleetbase credentials. */
-export async function testTenantConnection(tenantId: string): Promise<TestResult> {
+export async function testTenantConnection(
+  tenantId: string,
+): Promise<TestResult> {
   await requireRole("super_admin");
   const supabase = createAdminClient();
   const { data: tenant } = await supabase
@@ -378,7 +382,8 @@ export async function testTenantConnection(tenantId: string): Promise<TestResult
     .maybeSingle();
 
   const ctx = tenant?.slug
-    ? (await getTenantFleetbaseContext(tenant.slug as string)) ?? envFleetbaseContext()
+    ? ((await getTenantFleetbaseContext(tenant.slug as string)) ??
+      envFleetbaseContext())
     : envFleetbaseContext();
 
   if (!ctx) return { ok: false, code: "no-key" };

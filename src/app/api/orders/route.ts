@@ -1,8 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { notifyTenantDrivers } from "@/lib/push/send";
-import { createFleetbaseClient, FleetbaseError } from "@/lib/fleetbase";
 import { sendNewOrderAlertEmails } from "@/lib/order-alert-email";
-import { getTenantForOrder, resolveFleetbaseContext } from "@/lib/tenant";
+import { getTenantForOrder } from "@/lib/tenant";
 import { createOrderRecord } from "@/lib/orders";
 import { allow, clientIp } from "@/lib/rate-limit";
 import { priceCourse } from "@/lib/pricing";
@@ -29,7 +28,6 @@ async function isSameOrigin(request: Request): Promise<boolean> {
   }
 }
 
-// Order creation must always hit Fleetbase at request time.
 export const dynamic = "force-dynamic";
 
 function isValidBody(
@@ -66,8 +64,8 @@ function hasPickupCoordinates(b: unknown): b is CreateOrderInput {
     lat <= 90 &&
     lng >= -180 &&
     lng <= 180 &&
-    // Fleetbase treats the null island as "no location" and excludes such
-    // rows from adhoc matching outright.
+    // The null island means "no location", not a place on earth: a pickup
+    // there is a pickup nobody can be sent to.
     !(lat === 0 && lng === 0)
   );
 }
@@ -113,11 +111,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "orders-unavailable" }, { status: 503 });
   }
 
-  const ctx = await resolveFleetbaseContext(slug);
-  if (!ctx) {
-    return NextResponse.json({ error: "orders-unavailable" }, { status: 503 });
-  }
-
   // Per phone first (the sharper signal), then per IP.
   const withinLimits =
     (await allow(`order:phone:${body.phone}`, 5, "10 minutes")) &&
@@ -147,20 +140,12 @@ export async function POST(request: Request) {
   };
 
   try {
-    const created = await createFleetbaseClient(ctx).createOrder(order);
+    // Supabase holds the order outright now. Fleetbase is no longer written to:
+    // nothing had read it for a while, and keeping the write meant a course
+    // could be assigned in two systems that knew nothing of each other.
+    const record = await createOrderRecord(tenant.id, order);
 
-    // Supabase now holds the order itself, not a mirror of it: a failed insert
-    // must fail the request rather than leave a course no driver will ever see.
-    const record = await createOrderRecord(tenant.id, order, {
-      id: created.id,
-      trackingNumber: created.trackingNumber,
-      status: created.status,
-      stage: created.stage,
-    });
-
-    // after(): the customer's 201 must not wait on a push fan-out. The email
-    // moves here too at the Fleetbase cutover, when its recipient list stops
-    // coming from Fleetbase.
+    // after(): the customer's 201 must not wait on the fan-out.
     after(() =>
       notifyTenantDrivers(tenant.id, {
         orderId: record.id,
@@ -170,25 +155,23 @@ export async function POST(request: Request) {
       }),
     );
 
-    // Best-effort driver alert: this instance has no working push channel for
-    // Navigator, so drivers are told by email that a course is up for grabs.
-    await sendNewOrderAlertEmails(ctx, order);
+    // Email is the floor under the push: it asks nothing of the driver, and on
+    // iPhone it is the only channel until they install and opt in. In after()
+    // so the customer's confirmation never waits on Brevo.
+    after(() => sendNewOrderAlertEmails(tenant.id, order));
 
     return NextResponse.json(
-      { ...created, trackingToken: record.trackingToken },
+      {
+        id: record.id,
+        trackingNumber: null,
+        status: "pending",
+        stage: "searching",
+        trackingToken: record.trackingToken,
+      },
       { status: 201 },
     );
   } catch (err) {
-    const status = err instanceof FleetbaseError ? err.status : 500;
-    const message =
-      err instanceof FleetbaseError
-        ? err.message
-        : "Échec de l'envoi de la commande.";
-    // Log server-side for debugging; don't leak internals to the client.
-    console.error("[orders] create failed:", message);
-    return NextResponse.json(
-      { error: "create-failed" },
-      { status: status >= 500 ? 502 : status },
-    );
+    console.error("[orders] create failed:", (err as Error).message);
+    return NextResponse.json({ error: "create-failed" }, { status: 502 });
   }
 }

@@ -24,14 +24,6 @@ export type OrderRecord = {
   trackingToken: string;
 };
 
-/** The Fleetbase echo, while the dual-write lasts. Drop with step D. */
-export type LegacyFleetbaseEcho = {
-  id: string;
-  trackingNumber: string | null;
-  status: string;
-  stage: string;
-};
-
 function coord(p: LatLng | null | undefined): {
   lat: number | null;
   lng: number | null;
@@ -39,18 +31,10 @@ function coord(p: LatLng | null | undefined): {
   return p ? { lat: p.lat, lng: p.lng } : { lat: null, lng: null };
 }
 
-/**
- * Upsert the customer, then write the order. Throws on failure.
- *
- * `legacy` is the Fleetbase echo and is optional: it exists only so the current
- * dashboard, which still reads `status`/`stage`, keeps rendering during the
- * cutover. Once the dashboard reads `state`, the parameter and the three
- * columns behind it go away together.
- */
+/** Upsert the customer, then write the order. Throws on failure. */
 export async function createOrderRecord(
   tenantId: string,
   input: CreateOrderInput,
-  legacy?: LegacyFleetbaseEcho,
 ): Promise<OrderRecord> {
   const supabase = createAdminClient();
 
@@ -103,12 +87,10 @@ export async function createOrderRecord(
       distance_km: input.distanceKm,
       quote_source: input.quoteSource ?? "estimate",
 
-      // Legacy columns, still read by the dashboard until step C.
+      // `position` duplicates dropoff_lat/lng and is kept only because the
+      // historical rows carry it; fleetbase_id/status/stage stay null from here
+      // on, and remain solely to keep the pre-cutover archive readable.
       position: input.position,
-      fleetbase_id: legacy?.id ?? null,
-      tracking_number: legacy?.trackingNumber ?? null,
-      status: legacy?.status ?? null,
-      stage: legacy?.stage ?? null,
     })
     .select("id, tracking_token")
     .single();

@@ -1,26 +1,26 @@
 // ============================================================
 // New-order alert emails to drivers — SERVER ONLY.
 //
-// This self-hosted Fleetbase instance cannot push to the official Navigator
-// app (the store build carries Fleetbase's own Firebase identity), so the
-// adhoc "ping" reaches nobody whose app is closed. This is the stand-in:
-// when an order is created, email every driver of the tenant's company so
-// they open Navigator and accept it there.
+// Web Push reaches a driver only once they have installed the app and granted
+// the permission, and on iPhone not at all until both. Email asks nothing of
+// anyone, so it stays the channel that always works — the floor under the
+// push, not a leftover from the Fleetbase era.
+//
+// Recipients used to come from Fleetbase's driver list. They now come from
+// `profiles`, which is the roster the app itself maintains.
 //
 // Best-effort by design: an alert failure must never fail the customer's
 // order, so this module logs and swallows every error.
 // ============================================================
 
 import "server-only";
-import { createFleetbaseClient, type FleetbaseContext } from "@/lib/fleetbase";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { siteOrigin } from "@/lib/site-url";
 import type { CreateOrderInput } from "@/lib/order-types";
 
 function renderHtml(input: CreateOrderInput, openUrl: string): string {
-  const fee =
-    input.fee != null ? `${input.fee} DT` : null;
-  const distance =
-    input.distanceKm != null ? `${input.distanceKm} km` : null;
+  const fee = input.fee != null ? `${input.fee} DT` : null;
+  const distance = input.distanceKm != null ? `${input.distanceKm} km` : null;
   const facts = [
     `<strong>Retrait :</strong> ${escapeHtml(input.commerceName)}`,
     fee && `<strong>Frais de livraison :</strong> ${fee}`,
@@ -93,32 +93,51 @@ function escapeHtml(s: string): string {
  * up for grabs. Never throws.
  */
 export async function sendNewOrderAlertEmails(
-  ctx: FleetbaseContext,
+  tenantId: string,
   input: CreateOrderInput,
 ): Promise<void> {
   try {
     const apiKey = process.env.BREVO_API_KEY;
     if (!apiKey) {
-      console.error("[order-alert] BREVO_API_KEY missing — no driver alert sent");
+      console.error(
+        "[order-alert] BREVO_API_KEY missing — no driver alert sent",
+      );
       return;
     }
 
-    const drivers = await createFleetbaseClient(ctx).listDrivers();
+    // Active members of this tenant — owner and sub-drivers alike. A pending or
+    // suspended member is deliberately left out: they cannot take the course.
+    const supabase = createAdminClient();
+    const { data: members, error } = await supabase
+      .from("profiles")
+      .select("email")
+      .eq("tenant_id", tenantId)
+      .eq("status", "active")
+      .not("email", "is", null);
+
+    if (error) {
+      console.error("[order-alert] roster read failed:", error.message);
+      return;
+    }
+
     const emails = [
       ...new Set(
-        drivers
-          .map((d) => (d.email ?? "").trim().toLowerCase())
+        (members ?? [])
+          .map((m) => ((m.email as string | null) ?? "").trim().toLowerCase())
           .filter((e) => e.includes("@")),
       ),
     ];
     if (emails.length === 0) {
       console.warn(
-        "[order-alert] tenant has no driver with an email — nobody alerted",
+        "[order-alert] tenant %s has no active member with an email — nobody alerted",
+        tenantId,
       );
       return;
     }
 
-    const openUrl = `${await siteOrigin()}/ouvrir`;
+    // Straight to the feed. /ouvrir was a relay that fired the Navigator deep
+    // link; the course is now taken in the app this link opens.
+    const openUrl = `${await siteOrigin()}/dashboard`;
     const html = renderHtml(input, openUrl);
     const text = renderText(input, openUrl);
     const subject = `🛵 Nouvelle course — ${input.commerceName}`;
