@@ -8,12 +8,15 @@
 // none to load. Rather than swapping the family per locale, both faces are
 // declared and --font-sans lists them in order (see globals.css): the browser
 // resolves each glyph to the first family that has it, so Arabic text picks up
-// Cairo while Latin text on the same page — "Wamye", a phone number — stays
-// Inter. No locale-conditional CSS, and mixed-script lines look right, which
-// matters for derja because it borrows French words wholesale.
+// the Arabic face while Latin text on the same page — "Wamye", a phone number —
+// stays Inter. No locale-conditional CSS, and mixed-script lines look right,
+// which matters for derja because it borrows French words wholesale.
+//
+// Readex Pro also ships Latin, but the order above means it never gets asked
+// for it. That is deliberate: it is here for its Arabic only.
 // ============================================================
 
-import { Cairo, Inter } from "next/font/google";
+import { Readex_Pro, Inter } from "next/font/google";
 
 export const inter = Inter({
   variable: "--font-latin",
@@ -22,14 +25,21 @@ export const inter = Inter({
 });
 
 /**
- * Cairo, not IBM Plex Sans Arabic or Tajawal: the UI uses weights 400–800
- * (font-extrabold on the landing hero), and Plex Arabic stops at 700 while
- * Tajawal skips 600. Cairo has a variable axis, so no weight list is needed.
+ * Readex Pro, replacing Cairo: it is drawn for reading ease — low stroke
+ * contrast, large counters, simplified letterforms — and at the same px size it
+ * reads visibly bigger than Cairo did. Our readers are drivers glancing at a
+ * phone mid-course, often in derja they read slower than they speak, so plain
+ * legibility beats a tighter fit.
+ *
+ * It costs vertical space, and its weight axis stops at 700 where Cairo went to
+ * 1000. `font-extrabold` (800) therefore clamps to 700 — the browser does this
+ * silently and correctly, so the hero simply renders one notch lighter rather
+ * than breaking. Variable, so no weight list.
  */
-export const cairo = Cairo({
+export const arabic = Readex_Pro({
   variable: "--font-arabic",
   subsets: ["arabic"],
 });
 
 /** Both faces, for the <html> className of either root layout. */
-export const fontVariables = `${inter.variable} ${cairo.variable}`;
+export const fontVariables = `${inter.variable} ${arabic.variable}`;
