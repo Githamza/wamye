@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { Navigation, Phone } from "lucide-react";
 import { formatDinar } from "@/lib/format";
 import type { DriverOrder } from "@/lib/order-types";
 import type { LatLng } from "@/lib/order-types";
@@ -116,25 +117,20 @@ export function CourseCard({
 
   return (
     <article className="flex flex-col gap-3 rounded-[14px] border border-hair bg-white p-4">
+      {/* The two things a driver decides on, side by side and nothing between
+          them: what the run pays, and how far away it starts. */}
       <header className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <h3 className="truncate text-[15px] font-semibold text-stone-ink">
-            {order.commerce_name ?? t("unknownShop")}
-          </h3>
-          {order.commerce_addr && (
-            <p className="truncate text-[13px] text-stone-muted">
-              {order.commerce_addr}
-            </p>
-          )}
-        </div>
-        <div className="flex flex-none flex-col items-end gap-0.5">
+        <h3 className="min-w-0 flex-1 text-[17px] font-semibold leading-snug text-stone-ink">
+          {order.commerce_name ?? t("unknownShop")}
+        </h3>
+        <div className="flex flex-none flex-col items-end">
           {order.fee != null && (
-            <span className="text-[15px] font-semibold text-brand">
+            <span className="text-[22px] font-semibold leading-none tracking-tight text-brand">
               {formatDinar(order.fee)}
             </span>
           )}
           {away != null && (
-            <span className="text-[12px] text-stone-muted">
+            <span className="mt-1 text-[12px] text-stone-muted">
               {t("away", { km: away.toFixed(1) })}
             </span>
           )}
@@ -142,73 +138,156 @@ export function CourseCard({
       </header>
 
       {order.order_text && (
-        <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-stone-ink">
+        <p className="whitespace-pre-wrap rounded-[10px] bg-hair-2 px-3 py-2.5 text-[14px] leading-relaxed text-stone-ink">
           {order.order_text}
         </p>
       )}
 
-      <dl className="flex flex-col gap-1 text-[13px]">
-        {order.repere && (
-          <div className="flex gap-2">
-            <dt className="flex-none text-stone-muted">{t("landmark")}</dt>
-            <dd className="min-w-0 text-stone-ink">{order.repere}</dd>
-          </div>
-        )}
-        {order.distance_km != null && (
-          <div className="flex gap-2">
-            <dt className="flex-none text-stone-muted">{t("distance")}</dt>
-            <dd className="text-stone-ink">
-              {order.distance_km.toFixed(1)} km
-            </dd>
-          </div>
-        )}
-      </dl>
+      {/* The run itself, in the order it is driven: shop, then customer. Each
+          stop is its own tap target — the three look-alike buttons this
+          replaces made the driver read labels to find the map they wanted. */}
+      <div className="overflow-hidden rounded-[12px] border border-hair">
+        <Stop
+          eyebrow={t("stopPickup")}
+          title={order.commerce_addr ?? (order.commerce_name ?? t("unknownShop"))}
+          href={pickupUrl}
+          label={t("openPickup")}
+          go={t("goThere")}
+          marker={
+            <span className="h-2.5 w-2.5 rounded-full bg-brand ring-4 ring-brand-fill" />
+          }
+        />
 
-      {routeUrl && (
-        <a
-          href={routeUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="flex h-11 items-center justify-center rounded-[10px] border border-brand bg-brand-bg px-3 text-[14px] font-semibold text-brand transition-colors"
-        >
-          {viaPickup ? t("routeFull") : t("routeToCustomer")}
-        </a>
-      )}
+        {/* The trip distance belongs between the stops, not in a list of
+            figures: it is the length of this line. */}
+        <div className="flex items-center gap-3 px-3">
+          <span aria-hidden className="flex w-4 flex-none justify-center">
+            <span className="h-5 border-l border-dashed border-stone-faint" />
+          </span>
+          {order.distance_km != null && (
+            <span className="text-[11px] font-medium uppercase tracking-wide text-stone-muted">
+              {t("trip", { km: order.distance_km.toFixed(1) })}
+            </span>
+          )}
+        </div>
 
-      <div className="flex flex-wrap gap-2">
-        {/* Kept alongside the full route: a driver already outside the shop
-            wants the shop alone, not an itinerary starting where they stand. */}
-        {viaPickup && pickupUrl && (
-          <a
-            href={pickupUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="flex h-9 items-center rounded-[8px] border border-hair px-3 text-[13px] font-medium text-stone-ink transition-colors hover:bg-hair-2"
-          >
-            {t("openPickup")}
-          </a>
-        )}
-        {dropUrl && (
-          <a
-            href={dropUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="flex h-9 items-center rounded-[8px] border border-hair px-3 text-[13px] font-medium text-stone-ink transition-colors hover:bg-hair-2"
-          >
-            {t("openDropoff")}
-          </a>
-        )}
-        {order.phone && (
-          <a
-            href={`tel:+216${order.phone}`}
-            className="flex h-9 items-center rounded-[8px] border border-hair px-3 text-[13px] font-medium text-stone-ink transition-colors hover:bg-hair-2"
-          >
-            {t("callCustomer")}
-          </a>
+        <Stop
+          eyebrow={t("stopDropoff")}
+          title={order.customer_name ?? t("stopDropoff")}
+          detail={order.repere}
+          href={dropUrl}
+          label={t("openDropoff")}
+          go={t("goThere")}
+          marker={
+            <span className="h-3 w-3 rounded-full border-[3px] border-brand bg-white" />
+          }
+        />
+
+        {/* The two things done from the road, on one bar under the stops: drive
+            the run, or ring the person waiting at the end of it. */}
+        {(routeUrl || order.phone) && (
+          <div className="flex border-t border-hair bg-brand-bg">
+            {routeUrl && (
+              <a
+                href={routeUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex h-11 min-w-0 flex-1 items-center justify-center gap-2 px-3 text-[13px] font-semibold text-brand transition-colors hover:bg-brand-fill focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand"
+              >
+                <Navigation className="h-4 w-4 flex-none" aria-hidden />
+                <span className="truncate">
+                  {viaPickup ? t("routeFull") : t("routeToCustomer")}
+                </span>
+              </a>
+            )}
+            {order.phone && (
+              <a
+                href={`tel:+216${order.phone}`}
+                aria-label={t("callCustomer")}
+                className={`flex h-11 flex-none items-center justify-center gap-2 px-4 ${routeUrl ? "border-s border-brand-border" : "flex-1"} text-[13px] font-semibold text-brand transition-colors hover:bg-brand-fill focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand`}
+              >
+                <Phone className="h-4 w-4" aria-hidden />
+                {t("call")}
+              </a>
+            )}
+          </div>
         )}
       </div>
 
       {children}
     </article>
+  );
+}
+
+/**
+ * One stop on the run.
+ *
+ * The row is the link — a driver reaching for the shop's map at a red light
+ * should be able to hit anywhere on the line, not a 13px label. Nothing else
+ * is interactive here: a second control on the row would either nest inside
+ * that link or push its label out of line with the stop above.
+ */
+function Stop({
+  eyebrow,
+  title,
+  detail,
+  href,
+  label,
+  go,
+  marker,
+}: {
+  eyebrow: string;
+  title: string;
+  detail?: string | null;
+  href: string | null;
+  /** Read out instead of the row's text, which is an address. */
+  label: string;
+  go: string;
+  marker: React.ReactNode;
+}) {
+  const body = (
+    <>
+      <span aria-hidden className="flex w-4 flex-none justify-center pt-1">
+        {marker}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[11px] font-semibold uppercase tracking-wide text-stone-muted">
+          {eyebrow}
+        </span>
+        {/* Clamped, not truncated: an address cut at one line on a narrow
+            phone loses the street it names. */}
+        <span className="block line-clamp-2 text-[14px] text-stone-ink">
+          {title}
+        </span>
+        {detail && (
+          <span className="block line-clamp-2 text-[13px] text-stone-muted">
+            {detail}
+          </span>
+        )}
+      </span>
+    </>
+  );
+
+  return (
+    <div className="flex items-center px-1">
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={label}
+          className="flex min-w-0 flex-1 items-start gap-3 rounded-[10px] px-2 py-2.5 transition-colors hover:bg-hair-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand"
+        >
+          {body}
+          <span className="flex-none pt-1 text-[12px] font-semibold text-brand">
+            {go}
+          </span>
+        </a>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-start gap-3 px-2 py-2.5">
+          {body}
+        </div>
+      )}
+    </div>
   );
 }
