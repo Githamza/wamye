@@ -14,3 +14,15 @@ export function roundToHalf(n: number): number {
 export function feeForKm(distanceKm: number, fee: FeeConfig): number {
   return Math.max(fee.minFee, roundToHalf(fee.baseFee + fee.feePerKm * distanceKm));
 }
+
+/**
+ * What the delivery costs before any address is known — the fee at zero
+ * distance, which is the floor of the model.
+ *
+ * `flat` says whether that floor is also the ceiling: with no per-kilometre
+ * component the price is simply the price, and announcing it as "from" would
+ * make a fixed fee sound negotiable.
+ */
+export function startingFee(fee: FeeConfig): { amount: number; flat: boolean } {
+  return { amount: feeForKm(0, fee), flat: fee.feePerKm === 0 };
+}

@@ -2,12 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Check, Loader2, Store, X } from "lucide-react";
+import { Check, ExternalLink, Loader2, Store, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import type { Commerce, Zone } from "@/lib/config-types";
 import type { LatLng } from "@/lib/order-types";
 import { proximity } from "@/lib/format";
-import { type PlaceSuggestion, isMapsEnabled, resolvePlace, searchPlaces } from "@/lib/maps";
+import {
+  type PlaceSuggestion,
+  isMapsEnabled,
+  placeMapsUrl,
+  resolvePlace,
+  searchPlaces,
+} from "@/lib/maps";
 
 type Props = {
   selected: Commerce | null;
@@ -114,20 +120,34 @@ export function CommerceCombo({ selected, onSelect, zone, position, regionCode }
   // Selected → chip-card
   if (selected) {
     return (
-      <div className="anim-fade-in flex min-h-12 items-center gap-2.5 rounded-[10px] border border-brand-border bg-brand-bg px-3.5 py-3">
-        <Check className="size-5 shrink-0 text-success" strokeWidth={2} />
-        <div className="flex min-w-0 flex-1 flex-col gap-px">
-          <div className="text-[15px] font-medium text-stone-ink">{selected.name}</div>
-          <div className="truncate text-[13px] text-stone-muted">{selected.addr}</div>
+      <div className="flex flex-col gap-2">
+        <div className="anim-fade-in flex min-h-12 items-center gap-2.5 rounded-[10px] border border-brand-border bg-brand-bg px-3.5 py-3">
+          <Check className="size-5 shrink-0 text-success" strokeWidth={2} />
+          <div className="flex min-w-0 flex-1 flex-col gap-px">
+            <div className="text-[15px] font-medium text-stone-ink">{selected.name}</div>
+            <div className="truncate text-[13px] text-stone-muted">{selected.addr}</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onSelect(null)}
+            aria-label={t("removeAria")}
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-stone-muted transition-colors hover:bg-brand-fill"
+          >
+            <X className="size-4" strokeWidth={1.5} />
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => onSelect(null)}
-          aria-label={t("removeAria")}
-          className="flex size-8 shrink-0 items-center justify-center rounded-lg text-stone-muted transition-colors hover:bg-brand-fill"
+        {/* The menu and the prices live on the shop's Maps page, not here — a
+            customer writing an order needs to see them. A new tab, so the
+            half-typed order behind it survives the detour. */}
+        <a
+          href={placeMapsUrl(selected)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="anim-fade-in flex h-11 items-center justify-center gap-2 rounded-[10px] border border-hair bg-white text-[14px] font-medium text-stone-ink transition-colors hover:bg-hair-2"
         >
-          <X className="size-4" strokeWidth={1.5} />
-        </button>
+          <ExternalLink className="size-4" strokeWidth={1.5} />
+          {t("viewMenu")}
+        </a>
       </div>
     );
   }

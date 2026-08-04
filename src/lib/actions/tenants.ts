@@ -134,6 +134,44 @@ export async function createTenant(formData: FormData) {
 }
 
 /** Enable/disable a tenant's public page (only meaningful once approved). */
+/**
+ * Set the quartier shown in the header of a tenant's ordering page.
+ *
+ * Super-admin only, and deliberately not on the owner's settings page: opening
+ * a quartier is Wamye's call, and the page is meant to be duplicated onto the
+ * next one with nothing but this label changing.
+ */
+export async function updateTenantArea(formData: FormData) {
+  await requireRole("super_admin");
+  const id = String(formData.get("id") ?? "");
+  if (!id) redirect("/admin");
+
+  const supabase = createAdminClient();
+  const { data: t } = await supabase
+    .from("tenants")
+    .select("slug, branding")
+    .eq("id", id)
+    .maybeSingle();
+  if (!t) redirect("/admin");
+
+  // branding is one JSON column: merge, never replace, or the emoji and the
+  // support number go with it.
+  const branding = {
+    ...((t.branding ?? {}) as Record<string, unknown>),
+    areaLabel: String(formData.get("areaLabel") ?? "").trim() || undefined,
+  };
+
+  const { error } = await supabase
+    .from("tenants")
+    .update({ branding })
+    .eq("id", id);
+  if (error) redirect(`/admin/tenants/${id}?error=save`);
+
+  revalidatePath(`/admin/tenants/${id}`);
+  revalidatePath(`/t/${t.slug}`);
+  redirect(`/admin/tenants/${id}?done=area`);
+}
+
 export async function toggleTenantActive(formData: FormData) {
   await requireRole("super_admin");
   const id = String(formData.get("id") ?? "");

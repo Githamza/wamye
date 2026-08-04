@@ -32,6 +32,28 @@ export function isMapsEnabled(): boolean {
 
 export { MAP_ID };
 
+/**
+ * A Maps link to one business — the page that carries its menu, its prices and
+ * its opening hours. What the customer needs before writing an order, and what
+ * this app deliberately does not host.
+ *
+ * The place id decides which business Maps shows; the coordinates are what it
+ * falls back on. Letting a text query pick would be how "Chez Ali" resolves to
+ * another Chez Ali three governorates away.
+ */
+export function placeMapsUrl(place: {
+  id: string;
+  lat: number;
+  lng: number;
+}): string {
+  const params = new URLSearchParams({
+    api: "1",
+    query: `${place.lat},${place.lng}`,
+    query_place_id: place.id,
+  });
+  return `https://www.google.com/maps/search/?${params.toString()}`;
+}
+
 // Default map centre (fallback for the mini-map before a tenant zone is known).
 export const DJERBA_CENTER = { lat: 33.808, lng: 10.995 };
 

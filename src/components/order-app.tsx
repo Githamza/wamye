@@ -17,6 +17,7 @@ import { LocaleSwitcher } from "@/components/locale-switcher";
 import type { Commerce, TenantPublicConfig } from "@/lib/config-types";
 import { evaluatePosition, simulatedPosition } from "@/lib/geo";
 import { formatDinar } from "@/lib/format";
+import { startingFee } from "@/lib/fees";
 import { formatPhone, isValidPhone, normalizePhone } from "@/lib/phone";
 import { closedState, isOpenNow } from "@/lib/hours";
 import {
@@ -182,6 +183,22 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
   }, [deliveryStatus, order, hasCommerce, phoneValid]);
 
   const canSubmit = blocked === null;
+
+  /**
+   * The delivery price, announced before anything is filled in — it is the
+   * first question every customer asks, and it used to appear only once the
+   * address was known.
+   *
+   * The live fee replaces the announced one as soon as there is one, so the
+   * header never contradicts the button.
+   */
+  const starting = startingFee(config.feeConfig);
+  const headerFee = formatDinar(fee ?? starting.amount);
+  const headerFeeLabel =
+    fee !== null || starting.flat
+      ? t("feeHeader", { fee: headerFee })
+      : t("feeHeaderFrom", { fee: headerFee });
+
   const ctaLabel = submitting
     ? t("submitting")
     : canSubmit && fee !== null
@@ -381,6 +398,21 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
           <LocaleSwitcher />
         </header>
 
+        {/* Delivery price — and, right beside it, what it is not. A customer
+            reading a single number on a delivery page assumes it is the total;
+            the disclaimer travels with the price rather than being filed away
+            somewhere else on the screen. */}
+        {screen === "order" && (
+          <div className="flex flex-none items-baseline justify-between gap-2 border-b border-hair bg-white px-5 pb-2.5">
+            <span className="flex-none text-[14px] font-semibold text-brand">
+              {headerFeeLabel}
+            </span>
+            <span className="truncate text-[12px] text-stone-muted">
+              {t("feeExcludesItems")}
+            </span>
+          </div>
+        )}
+
         {/* Returning-customer welcome */}
         {mounted && returning && screen === "order" && (
           <div className="anim-fade-in flex-none border-b border-brand-border bg-brand-bg px-5 py-2.5 text-[15px] font-medium text-brand-ink">
@@ -522,6 +554,13 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
               {isOpen && blocked && (
                 <div className="text-center text-[13px] text-stone-muted">
                   {t(BLOCKED_KEY[blocked])}
+                </div>
+              )}
+              {/* Last word before the button, which carries a price: the amount
+                  buys the trip, not the food. */}
+              {isOpen && !blocked && (
+                <div className="text-center text-[12px] text-stone-muted">
+                  {t("ctaFeeNotice")}
                 </div>
               )}
               <button

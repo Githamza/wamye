@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   approveTenant,
   toggleTenantActive,
+  updateTenantArea,
   updateTenantFleetbase,
 } from "@/lib/actions/tenants";
 import { approveSubDriver, setMemberStatus } from "@/lib/actions/team";
@@ -30,6 +31,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 // The codes the actions can put in ?done=; anything else falls back.
 const DONE_MESSAGE: Record<string, string> = {
   fleetbase: "Connexion Fleetbase enregistrée.",
+  area: "Quartier enregistré.",
   approved: "Compte validé, organisation Fleetbase créée et livreur enregistré.",
   "approved-no-fleetbase":
     "Compte validé, mais la création de l'organisation Fleetbase a échoué — réessayez ci-dessous.",
@@ -60,7 +62,9 @@ export default async function TenantDetailPage(props: {
   const supabase = createAdminClient();
   const { data: t } = await supabase
     .from("tenants")
-    .select("id, slug, name, status, is_active, fleetbase_api_url, fleetbase_order_type")
+    .select(
+      "id, slug, name, status, is_active, branding, fleetbase_api_url, fleetbase_order_type",
+    )
     .eq("id", id)
     .maybeSingle();
   if (!t) notFound();
@@ -217,6 +221,31 @@ export default async function TenantDetailPage(props: {
           );
         })}
       </div>
+
+      {/* QUARTIER — the name in the header of the ordering page. Here rather
+          than in the owner's settings: it is Wamye's, and duplicating the page
+          onto the next quartier is this field and nothing else. */}
+      <form
+        action={updateTenantArea}
+        className="flex flex-col gap-4 rounded-[14px] border border-hair bg-white p-5"
+      >
+        <div className="text-[14px] font-semibold text-stone-ink">Page client</div>
+        <input type="hidden" name="id" value={t.id} />
+        <Field label="Quartier livré (affiché en en-tête)">
+          <input
+            name="areaLabel"
+            defaultValue={(t.branding as { areaLabel?: string } | null)?.areaLabel ?? ""}
+            placeholder="Sfax centre"
+            className={input}
+          />
+        </Field>
+        <button
+          type="submit"
+          className="h-11 self-start rounded-[10px] bg-brand px-5 text-[14px] font-semibold text-white hover:bg-brand-hover"
+        >
+          Enregistrer
+        </button>
+      </form>
 
       {/* FLEETBASE — one card, and the automation leads. The manual key entry
           stays available but folded away: it is the escape hatch (attaching a

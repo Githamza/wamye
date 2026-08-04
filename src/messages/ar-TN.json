@@ -104,6 +104,10 @@
     "reorderTitle": "عاود اطلب كيما المرّة الفاتت",
     "reorderAction": "عاود",
     "reorderToast": "الطلب تعمّر — زيد موقعك باش تأكّد",
+    "feeHeader": "التوصيل: {fee}",
+    "feeHeaderFrom": "التوصيل: بداية من {fee}",
+    "feeExcludesItems": "بلاش ثمن السلعة",
+    "ctaFeeNotice": "هذا المبلغ متاع التوصيل برك — ثمن السلعة يتخلّص زيادة.",
     "sectionOrder": "طلبك",
     "orderPlaceholder": "مثلا: 2 مقلوب تن + 1 كوكا بارد",
     "orderAria": "طلبك",
@@ -130,6 +134,7 @@
     "reorderToastNoCommerce": "الطلب تعمّر — اختار المحلّ وزيد موقعك"
   },
   "Commerce": {
+    "viewMenu": "شوف المنيو / الأثمنة",
     "removeAria": "نحّي المحلّ",
     "searchPlaceholder": "مطعم، عطّار، صيدلية…",
     "searchAria": "المحلّ",
@@ -231,7 +236,8 @@
       "sectionGeneral": "العلامة والمنطقة",
       "name": "الاسم",
       "logoEmoji": "إيموجي اللوغو",
-      "areaLabel": "المنطقة (التسمية)",
+      "areaLabel": "الحومة (تتحدّد من Wamye)",
+      "areaLabelUnset": "ما تحدّدتش",
       "supportPhone": "هاتف الدعم",
       "baseFee": "الرسوم الأساسية (د.ت)",
       "feePerKm": "الرسوم / كم",

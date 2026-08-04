@@ -25,9 +25,22 @@ export async function updateGeneral(formData: FormData) {
   const profile = await requireOwner();
   const supabase = createAdminClient();
 
+  // The quartier is a super-admin decision, not an owner's: it names the area
+  // Wamye has opened, and the ordering page duplicated onto the next quartier
+  // must not drift because a driver retitled their own. This form no longer
+  // carries the field, so the stored value is read back and written through —
+  // branding is a whole JSON column, and omitting a key deletes it.
+  const { data: current } = await supabase
+    .from("tenants")
+    .select("branding")
+    .eq("id", profile.tenantId)
+    .maybeSingle();
+  const areaLabel = (current?.branding as { areaLabel?: string } | null)
+    ?.areaLabel;
+
   const branding = {
     name: String(formData.get("name") ?? "").trim(),
-    areaLabel: String(formData.get("areaLabel") ?? "").trim() || undefined,
+    areaLabel,
     // Normalised, never rejected: an owner clearing or fat-fingering their
     // support number must not block a zone or fee save. The number that has to
     // be valid is the one on their profile, which the Team page owns.

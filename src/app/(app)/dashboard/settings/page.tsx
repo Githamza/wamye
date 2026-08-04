@@ -75,8 +75,13 @@ export default async function SettingsPage(props: {
           <Field label={tr("logoEmoji")}>
             <input name="logoEmoji" defaultValue={branding.logoEmoji ?? ""} className={input} />
           </Field>
+          {/* Read-only: the quartier is set by Wamye (see updateGeneral). */}
           <Field label={tr("areaLabel")}>
-            <input name="areaLabel" defaultValue={branding.areaLabel ?? ""} className={input} />
+            <div
+              className={`${input} flex items-center bg-hair-2 text-stone-muted2`}
+            >
+              {branding.areaLabel || tr("areaLabelUnset")}
+            </div>
           </Field>
           <Field label={tr("supportPhone")}>
             <PhoneField name="supportPhone" defaultValue={branding.supportPhone ?? ""} />
