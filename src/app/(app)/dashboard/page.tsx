@@ -4,7 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { ShopLink } from "@/components/shop-link";
 import { DriverBoard } from "@/components/driver/driver-board";
 import { PushSetup } from "@/components/pwa/push-setup";
-import type { DriverOrder } from "@/lib/order-types";
+import { CrewStack } from "@/components/team/crew-stack";
+import { loadCrew } from "@/lib/crew-data";
+import { COURSE_COLUMNS, type DriverOrder } from "@/lib/order-types";
 
 /**
  * The driver's home.
@@ -19,9 +21,6 @@ import type { DriverOrder } from "@/lib/order-types";
  */
 
 export const dynamic = "force-dynamic";
-
-const COURSE_COLUMNS =
-  "id, state, created_at, commerce_name, commerce_addr, commerce_place_id, order_text, repere, phone, customer_name, fee, distance_km, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, driver_id";
 
 /** Older than this and nobody is coming — it clutters the feed instead. */
 const FEED_WINDOW = "3 hours";
@@ -54,8 +53,21 @@ export default async function DashboardPage() {
       supabase.rpc("feed_courses", { p_window: FEED_WINDOW }),
     ]);
 
+  // Who else is out, and on what. Loaded here rather than in the board: it is
+  // the same page load, and the board's Realtime refreshes bring it up to date
+  // along with the courses.
+  const crew = await loadCrew(profile.tenantId, profile.id);
+
   return (
     <div className="flex flex-col gap-4">
+      {/* Top corner, above everything: a driver glances at who else is out
+          before reading the courses, and never the other way round. */}
+      <CrewStack
+        crew={crew}
+        tenantId={profile.tenantId}
+        profileId={profile.id}
+      />
+
       {tenant?.slug && <ShopLink slug={tenant.slug} />}
 
       {/* Here rather than in Réglages, which is owner-only: notifications are a

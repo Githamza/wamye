@@ -345,6 +345,27 @@
       "codeLabel": "Code d'équipe :",
       "regenerate": "Générer un nouveau lien",
       "regenerateHint": "L'ancien lien cesse aussitôt de fonctionner. À faire si le lien a circulé au-delà des personnes visées."
+    },
+    "crew": {
+      "title": "L'équipe",
+      "summary": "{online} connecté(s) · {delivering} en livraison",
+      "back": "← Mes courses",
+      "intro": "Qui est là, et sur quelle course. Les positions sont celles des applis ouvertes : un livreur qui ferme l'appli cesse d'être suivi.",
+      "rosterTitle": "Livreurs ({count})",
+      "me": "moi",
+      "unnamed": "Livreur",
+      "available": "Disponible",
+      "offline": "Appli fermée",
+      "delivering": "En livraison — {shop}",
+      "someShop": "un commerce",
+      "detail": "Détail",
+      "positionStale": "Dernière position il y a {min} min",
+      "positionNever": "Position jamais partagée",
+      "openMap": "Voir tout le monde sur la carte",
+      "mapTitle": "Positions de l'équipe",
+      "mapEmpty": "Personne n'a encore partagé sa position.",
+      "mapUnavailable": "La carte n'est pas configurée sur cette installation.",
+      "close": "Fermer"
     }
   },
   "ApiError": {

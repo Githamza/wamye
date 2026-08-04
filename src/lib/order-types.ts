@@ -122,6 +122,14 @@ export type TrackedOrder = {
  * RLS (orders_select_tenant), so the column names are the DB's on purpose —
  * this crosses the Realtime boundary, where payloads arrive as raw rows.
  */
+/**
+ * The columns every driver-side read of `orders` selects, kept in one place so
+ * the dashboard feed and the team view cannot drift apart. A column list, not
+ * a secret: safe on either side of the wire.
+ */
+export const COURSE_COLUMNS =
+  "id, state, created_at, commerce_name, commerce_addr, commerce_place_id, order_text, repere, phone, customer_name, fee, distance_km, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, driver_id";
+
 export type DriverOrder = {
   id: string;
   state: string;
