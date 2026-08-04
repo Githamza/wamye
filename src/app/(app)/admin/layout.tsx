@@ -18,6 +18,9 @@ export default async function AdminLayout({
           <div className="text-[15px] font-semibold text-stone-ink">Wamye — Admin plateforme</div>
         </div>
         <div className="flex items-center gap-4 text-[13px]">
+          <Link href="/admin/carte" className="text-stone-muted2 hover:text-brand">
+            Carte
+          </Link>
           <Link href="/dashboard" className="text-stone-muted2 hover:text-brand">
             Mon tableau de bord
           </Link>
@@ -31,7 +34,9 @@ export default async function AdminLayout({
           </form>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-3xl p-4 sm:p-6">{children}</main>
+      {/* No width cap here: each page sets its own. The tenant pages are forms,
+          which read badly past 3xl; the national map wants the whole screen. */}
+      <main className="w-full p-4 sm:p-6">{children}</main>
     </div>
   );
 }

@@ -31,7 +31,7 @@ export default async function NewTenantPage(props: {
   const { error } = await props.searchParams;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
       <div className="flex items-center gap-2 text-[13px] text-stone-muted">
         <Link href="/admin" className="text-brand hover:underline">
           Tenants

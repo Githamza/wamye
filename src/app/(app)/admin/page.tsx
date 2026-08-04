@@ -40,15 +40,23 @@ export default async function AdminHomePage(props: {
   const tenants = (data ?? []) as TenantRow[];
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-stone-ink">Livreurs</h1>
+        <div className="flex items-center gap-3">
+        <Link
+          href="/admin/carte"
+          className="rounded-[10px] border border-hair bg-white px-3 py-2 text-[14px] font-medium text-stone-muted2 hover:bg-hair-2"
+        >
+          Carte
+        </Link>
         <Link
           href="/admin/tenants/new"
           className="rounded-[10px] bg-brand px-4 py-2 text-[14px] font-semibold text-white hover:bg-brand-hover"
         >
           + Nouveau
         </Link>
+        </div>
       </div>
 
       {created && (
