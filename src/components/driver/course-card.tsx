@@ -15,9 +15,44 @@ import { haversineKm } from "@/lib/geo";
  * that matter, so they get the size. Everything else is secondary.
  */
 
+function coord(lat: number | null, lng: number | null): string | null {
+  return lat == null || lng == null ? null : `${lat},${lng}`;
+}
+
 function mapsUrl(lat: number | null, lng: number | null): string | null {
-  if (lat == null || lng == null) return null;
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
+  const q = coord(lat, lng);
+  return q
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`
+    : null;
+}
+
+/**
+ * One tap for the whole run: shop first, customer second.
+ *
+ * `origin` is deliberately left out — Maps then uses the phone's live location,
+ * which beats the last fix we happened to store, and works even when the driver
+ * has refused us the permission.
+ *
+ * Once the package is in hand the shop is behind them, so it stops being a
+ * waypoint: routing a driver back past the restaurant they have just left is
+ * the kind of detail that makes an app feel written by someone who has never
+ * done the job.
+ */
+function mapsRouteUrl(order: DriverOrder, viaPickup: boolean): string | null {
+  const pickup = coord(order.pickup_lat, order.pickup_lng);
+  const dropoff = coord(order.dropoff_lat, order.dropoff_lng);
+
+  const destination = dropoff ?? pickup;
+  if (!destination) return null;
+
+  const params = new URLSearchParams({
+    api: "1",
+    destination,
+    travelmode: "driving",
+  });
+  if (viaPickup && pickup && dropoff) params.set("waypoints", pickup);
+
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
 export function CourseCard({
@@ -34,6 +69,11 @@ export function CourseCard({
 
   const pickupUrl = mapsUrl(order.pickup_lat, order.pickup_lng);
   const dropUrl = mapsUrl(order.dropoff_lat, order.dropoff_lng);
+
+  // Everything before pickup — including a course still up for grabs, where
+  // seeing the whole run is how a driver judges whether to take it.
+  const viaPickup = order.state !== "picked_up";
+  const routeUrl = mapsRouteUrl(order, viaPickup);
 
   const away =
     driverPosition && order.pickup_lat != null && order.pickup_lng != null
@@ -93,8 +133,21 @@ export function CourseCard({
         )}
       </dl>
 
+      {routeUrl && (
+        <a
+          href={routeUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="flex h-11 items-center justify-center rounded-[10px] border border-brand bg-brand-bg px-3 text-[14px] font-semibold text-brand transition-colors"
+        >
+          {viaPickup ? t("routeFull") : t("routeToCustomer")}
+        </a>
+      )}
+
       <div className="flex flex-wrap gap-2">
-        {pickupUrl && (
+        {/* Kept alongside the full route: a driver already outside the shop
+            wants the shop alone, not an itinerary starting where they stand. */}
+        {viaPickup && pickupUrl && (
           <a
             href={pickupUrl}
             target="_blank"

@@ -316,7 +316,9 @@
       "declineBack": "Retour",
       "declineConfirm": "Confirmer",
       "declined": "Course retirée de ta liste.",
-      "reasonMissing": "Choisis une raison, et écris-la si tu mets « Autre »."
+      "reasonMissing": "Choisis une raison, et écris-la si tu mets « Autre ».",
+      "routeFull": "Itinéraire : commerce puis client",
+      "routeToCustomer": "Itinéraire vers le client"
     },
     "push": {
       "title": "Notifications",
