@@ -235,16 +235,6 @@ export function CoverageBoard({ livreurs }: { livreurs: Livreur[] }) {
         </div>
       </div>
 
-      <p className="text-[12px] leading-relaxed text-stone-muted">
-        La taille d&apos;une bulle est le nombre de livreurs, sa couleur l&apos;état
-        du groupe : cyan dès qu&apos;un livreur est validé, ambre quand tout le
-        monde attend encore. La plupart des positions viennent de la zone que le
-        livreur a écrite à l&apos;inscription — {plural(preciseCount, "livreur", "livreurs")} seulement{" "}
-        {preciseCount > 1 ? "ont" : "a"} une position réelle, un PWA ne suivant
-        pas en arrière-plan. Un « ? » signale une orthographe corrigée au
-        jugé (« Araina » → Ariana).
-      </p>
-
       {selected && (
         <div className="flex flex-col overflow-hidden rounded-[14px] border border-hair bg-white">
           <div className="flex items-baseline justify-between border-b border-hair px-3.5 py-2.5">
@@ -264,6 +254,16 @@ export function CoverageBoard({ livreurs }: { livreurs: Livreur[] }) {
           </ul>
         </div>
       )}
+
+      <p className="text-[12px] leading-relaxed text-stone-muted">
+        La taille d&apos;une bulle est le nombre de livreurs, sa couleur l&apos;état
+        du groupe : cyan dès qu&apos;un livreur est validé, ambre quand tout le
+        monde attend encore. La plupart des positions viennent de la zone que le
+        livreur a écrite à l&apos;inscription — {plural(preciseCount, "livreur", "livreurs")} seulement{" "}
+        {preciseCount > 1 ? "ont" : "a"} une position réelle, un PWA ne suivant
+        pas en arrière-plan. Un « ? » signale une orthographe corrigée au
+        jugé (« Araina » → Ariana).
+      </p>
 
       {(unplaced.unknown.length > 0 || unplaced.abroad.length > 0) && (
         <div className="flex flex-col overflow-hidden rounded-[14px] border border-hair bg-white">
