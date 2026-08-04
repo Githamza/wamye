@@ -265,6 +265,9 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
           order: order.trim(),
           commerceName: commerceLabel,
           commerceAddr: commerce?.addr ?? null,
+          // Google place id: what lets the driver see the shop by name in Maps
+          // instead of an anonymous dropped pin. Commerce.id already is one.
+          commercePlaceId: commerce?.id ?? null,
           commercePosition: commerce && {
             lat: commerce.lat,
             lng: commerce.lng,

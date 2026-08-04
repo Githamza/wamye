@@ -61,6 +61,8 @@ export type CreateOrderInput = {
   order: string;
   commerceName: string;
   commerceAddr?: string | null;
+  /** Google place id of the pickup, when the shop was picked from the list. */
+  commercePlaceId?: string | null;
   /**
    * Pickup coordinates. Required, and never inferred server-side.
    *
@@ -126,6 +128,7 @@ export type DriverOrder = {
   created_at: string;
   commerce_name: string | null;
   commerce_addr: string | null;
+  commerce_place_id: string | null;
   order_text: string | null;
   repere: string | null;
   phone: string | null;

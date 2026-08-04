@@ -19,11 +19,27 @@ function coord(lat: number | null, lng: number | null): string | null {
   return lat == null || lng == null ? null : `${lat},${lng}`;
 }
 
-function mapsUrl(lat: number | null, lng: number | null): string | null {
+/**
+ * A Maps link for one point.
+ *
+ * With a place id, Maps shows the business — its name, its opening hours, its
+ * reviews. Without one it shows "Point sur la carte", which is what a driver
+ * was getting for the restaurant they were being sent to.
+ *
+ * The coordinates stay in the URL either way. The place id only decides the
+ * label: letting a text query pick the location is how a pickup once resolved
+ * to Tennessee (see the note on CreateOrderInput.commercePosition).
+ */
+function mapsUrl(
+  lat: number | null,
+  lng: number | null,
+  placeId?: string | null,
+): string | null {
   const q = coord(lat, lng);
-  return q
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`
-    : null;
+  if (!q) return null;
+  const params = new URLSearchParams({ api: "1", query: q });
+  if (placeId) params.set("query_place_id", placeId);
+  return `https://www.google.com/maps/search/?${params.toString()}`;
 }
 
 /**
@@ -50,7 +66,18 @@ function mapsRouteUrl(order: DriverOrder, viaPickup: boolean): string | null {
     destination,
     travelmode: "driving",
   });
-  if (viaPickup && pickup && dropoff) params.set("waypoints", pickup);
+
+  if (viaPickup && pickup && dropoff) {
+    params.set("waypoints", pickup);
+    // Names the stop after the shop rather than a bare pin. Google requires the
+    // text parameter alongside the id, which the coordinates above satisfy.
+    if (order.commerce_place_id) {
+      params.set("waypoint_place_ids", order.commerce_place_id);
+    }
+  } else if (!dropoff && order.commerce_place_id) {
+    // Degenerate case: no customer pin, so the shop IS the destination.
+    params.set("destination_place_id", order.commerce_place_id);
+  }
 
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
@@ -67,7 +94,11 @@ export function CourseCard({
 }) {
   const t = useTranslations("Dashboard.course");
 
-  const pickupUrl = mapsUrl(order.pickup_lat, order.pickup_lng);
+  const pickupUrl = mapsUrl(
+    order.pickup_lat,
+    order.pickup_lng,
+    order.commerce_place_id,
+  );
   const dropUrl = mapsUrl(order.dropoff_lat, order.dropoff_lng);
 
   // Everything before pickup — including a course still up for grabs, where

@@ -21,7 +21,7 @@ import type { DriverOrder } from "@/lib/order-types";
 export const dynamic = "force-dynamic";
 
 const COURSE_COLUMNS =
-  "id, state, created_at, commerce_name, commerce_addr, order_text, repere, phone, customer_name, fee, distance_km, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, driver_id";
+  "id, state, created_at, commerce_name, commerce_addr, commerce_place_id, order_text, repere, phone, customer_name, fee, distance_km, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, driver_id";
 
 /** Older than this and nobody is coming — it clutters the feed instead. */
 const FEED_WINDOW = "3 hours";

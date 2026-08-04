@@ -32,7 +32,10 @@ export type LegacyFleetbaseEcho = {
   stage: string;
 };
 
-function coord(p: LatLng | null | undefined): { lat: number | null; lng: number | null } {
+function coord(p: LatLng | null | undefined): {
+  lat: number | null;
+  lng: number | null;
+} {
   return p ? { lat: p.lat, lng: p.lng } : { lat: null, lng: null };
 }
 
@@ -54,7 +57,10 @@ export async function createOrderRecord(
   // Only set name/landmark when provided, so a later order without a prénom
   // doesn't wipe a returning customer's saved name (omitted columns are
   // preserved by ON CONFLICT DO UPDATE).
-  const clientRow: Record<string, unknown> = { tenant_id: tenantId, phone: input.phone };
+  const clientRow: Record<string, unknown> = {
+    tenant_id: tenantId,
+    phone: input.phone,
+  };
   if (input.prenom?.trim()) clientRow.name = input.prenom.trim();
   if (input.repere?.trim()) clientRow.last_repere = input.repere.trim();
 
@@ -86,6 +92,7 @@ export async function createOrderRecord(
 
       commerce_name: input.commerceName,
       commerce_addr: input.commerceAddr?.trim() || null,
+      commerce_place_id: input.commercePlaceId?.trim() || null,
       pickup_lat: pickup.lat,
       pickup_lng: pickup.lng,
       dropoff_lat: dropoff.lat,
@@ -107,8 +114,13 @@ export async function createOrderRecord(
     .single();
 
   if (error || !data) {
-    throw new Error(`order insert failed: ${error?.message ?? "no row returned"}`);
+    throw new Error(
+      `order insert failed: ${error?.message ?? "no row returned"}`,
+    );
   }
 
-  return { id: data.id as string, trackingToken: data.tracking_token as string };
+  return {
+    id: data.id as string,
+    trackingToken: data.tracking_token as string,
+  };
 }
