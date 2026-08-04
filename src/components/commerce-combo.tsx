@@ -106,10 +106,10 @@ export function CommerceCombo({ selected, onSelect, zone, position, regionCode }
         lng: place.lng,
       });
     } catch (err) {
-      // No coordinates, no commerce. A pickup without a location is geocoded
-      // by Fleetbase from the shop name alone and lands anywhere on earth,
-      // putting the order out of range of every driver — an order nobody can
-      // ever take is worse than asking the customer to choose again.
+      // No coordinates, no commerce. Dispatch is a radius around the pickup
+      // point, so an order without one is out of range of every driver — and
+      // an order nobody can ever take is worse than asking the customer to
+      // choose again.
       console.error("[places] resolve failed:", err);
       setFailed(true);
     } finally {

@@ -48,10 +48,10 @@ const STATUS_LABEL: Record<string, Record<AccountStatus, string>> = {
 };
 
 /**
- * The label for a delivery stage. Fleetbase is the source of `stage` and can
- * report one we do not model, so an unknown value falls back to itself rather
- * than rendering blank. An unknown locale falls back to French, which keeps
- * admin (French-only) callers passing nothing.
+ * The label for a delivery stage — the customer's four-value view of a course,
+ * derived from orders.state by stageForState(). An unmodelled value falls back
+ * to itself rather than rendering blank; an unknown locale falls back to
+ * French, which keeps admin (French-only) callers passing nothing.
  */
 export function stageLabel(stage: string, locale: string = "fr"): string {
   const map = STAGE_LABEL[locale] ?? STAGE_LABEL.fr;

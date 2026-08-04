@@ -50,7 +50,7 @@ export async function GET(
       display: "standalone",
       orientation: "portrait",
       background_color: "#FAFAF9",
-      theme_color: "#0F766E",
+      theme_color: "#00819F",
       lang,
       dir: lang === "ar-TN" ? "rtl" : "ltr",
       icons: [

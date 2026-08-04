@@ -1,31 +1,32 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { MessageCircle, X } from "lucide-react";
+import { MessageCircle, Plus, X } from "lucide-react";
 import { formatDinar } from "@/lib/format";
-import type { OrderStage, TrackedOrder } from "@/lib/order-types";
+import { stepState, type OrderStage } from "@/lib/order-types";
 
 type Props = {
   /**
-   * The per-order capability returned by POST /api/orders. It is what the
-   * tracking poll authenticates with — there is no id to enumerate.
+   * Live state, polled by OrderApp for every running course at once — this
+   * screen is one view onto that, not a second source of it.
    */
-  trackingToken?: string | null;
+  stage: OrderStage;
+  driverName: string | null;
+  trackingNumber: string | null;
   brandName?: string;
   courseNumber: number;
   order: string;
   commerceName: string;
   fee: number | null;
   onProblem: () => void;
+  /** Back to the form. The course keeps running — see LiveCourses. */
+  onNewOrder: () => void;
   onInstall: () => void;
   showPwa: boolean;
   onDismissPwa: () => void;
 };
 
-type DotState = "done" | "active" | "pending";
-
-function TimelineDot({ state }: { state: DotState }) {
+function TimelineDot({ state }: { state: ReturnType<typeof stepState> }) {
   return (
     <span
       className={`mt-1 size-3 rounded-full ${
@@ -39,86 +40,28 @@ function TimelineDot({ state }: { state: DotState }) {
   );
 }
 
-// Ordered stages → index, so we can tell past/current/future steps apart.
-const ORDER: OrderStage[] = ["searching", "enroute", "delivered"];
-
-function dotFor(step: OrderStage, stage: OrderStage): DotState {
-  if (stage === "canceled") return step === "searching" ? "active" : "pending";
-  const cur = ORDER.indexOf(stage);
-  const at = ORDER.indexOf(step);
-  if (at < cur) return "done";
-  if (at === cur) return stage === "delivered" ? "done" : "active";
-  return "pending";
-}
-
 function labelClass(step: OrderStage, stage: OrderStage): string {
-  const active = dotFor(step, stage) !== "pending";
-  return active ? "text-brand" : "text-stone-faint";
+  return stepState(step, stage) !== "pending"
+    ? "text-brand"
+    : "text-stone-faint";
 }
 
 export function ConfirmScreen({
-  trackingToken,
+  stage,
+  driverName,
+  trackingNumber,
   brandName,
   courseNumber,
   order,
   commerceName,
   fee,
   onProblem,
+  onNewOrder,
   onInstall,
   showPwa,
   onDismissPwa,
 }: Props) {
   const t = useTranslations("Confirm");
-  // Start optimistic; live polling refines this once the order exists.
-  const [stage, setStage] = useState<OrderStage>("searching");
-  const [tracking, setTracking] = useState<string | null>(null);
-  const [driverName, setDriverName] = useState<string | null>(null);
-  // Read by the polling loop to decide the next delay and when to stop. Kept in
-  // sync from an effect, not during render.
-  const stageRef = useRef(stage);
-  useEffect(() => {
-    stageRef.current = stage;
-  }, [stage]);
-
-  useEffect(() => {
-    if (!trackingToken) return;
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    async function poll() {
-      try {
-        const res = await fetch(`/api/track/${trackingToken}`, {
-          cache: "no-store",
-        });
-        if (res.ok) {
-          const data = (await res.json()) as TrackedOrder;
-          if (cancelled) return;
-          setStage(data.stage);
-          setDriverName(data.driverName);
-          if (data.trackingNumber) setTracking(data.trackingNumber);
-        }
-      } catch {
-        /* transient — keep the last known stage */
-      }
-
-      if (cancelled) return;
-      const s = stageRef.current;
-      // Stop only when the order is actually finished. The old code gave up
-      // after 40 attempts — about five minutes — so the customer's timeline
-      // froze *before* the delivery it was meant to show. A course can sit
-      // waiting for twenty minutes at three in the morning.
-      if (s === "delivered" || s === "canceled") return;
-      // Slower once a driver is on the way: the interesting change has happened.
-      timer = setTimeout(poll, s === "enroute" ? 15_000 : 8_000);
-    }
-
-    void poll();
-
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, [trackingToken]);
 
   const delivered = stage === "delivered";
   const canceled = stage === "canceled";
@@ -157,8 +100,16 @@ export function ConfirmScreen({
               className="draw-check"
             />
           </svg>
+          {/* This screen is re-openable now, so the headline reports where the
+              course is, not the moment it was created: coming back to a driver
+              who left ten minutes ago to read "Commande envoyée !" is the app
+              telling you something you already knew. */}
           <div className="text-xl font-semibold text-stone-ink">
-            {delivered ? t("delivered") : t("sent")}
+            {delivered
+              ? t("delivered")
+              : stage === "enroute"
+                ? t("onTheWay")
+                : t("sent")}
           </div>
           <div className="flex flex-wrap items-center justify-center gap-1.5">
             <div className="rounded-full border border-hair bg-hair-2 px-3 py-1 text-[13px] font-medium text-stone-muted2">
@@ -167,9 +118,9 @@ export function ConfirmScreen({
                   identifier, not a quantity. */}
               {t("courseNumber", { number: courseNumber })}
             </div>
-            {tracking && (
+            {trackingNumber && (
               <div className="rounded-full border border-hair bg-hair-2 px-3 py-1 text-[13px] font-medium text-stone-muted2">
-                {t("tracking", { number: tracking })}
+                {t("tracking", { number: trackingNumber })}
               </div>
             )}
           </div>
@@ -185,7 +136,7 @@ export function ConfirmScreen({
         <div className="flex flex-col rounded-[14px] border border-hair bg-white px-4 py-[18px] shadow-[0_1px_2px_rgba(28,25,23,0.04)]">
           <div className="flex gap-3.5">
             <div className="flex w-4 flex-col items-center">
-              <TimelineDot state={dotFor("searching", stage)} />
+              <TimelineDot state={stepState("searching", stage)} />
               <span className="mt-1 w-0.5 flex-1 bg-hair" />
             </div>
             <div className="flex flex-col gap-px pb-[22px]">
@@ -201,7 +152,7 @@ export function ConfirmScreen({
           </div>
           <div className="flex gap-3.5">
             <div className="flex w-4 flex-col items-center">
-              <TimelineDot state={dotFor("enroute", stage)} />
+              <TimelineDot state={stepState("enroute", stage)} />
               <span className="mt-1 w-0.5 flex-1 bg-hair" />
             </div>
             <div className="flex flex-col gap-px pb-[22px]">
@@ -221,7 +172,7 @@ export function ConfirmScreen({
           </div>
           <div className="flex gap-3.5">
             <div className="flex w-4 flex-col items-center">
-              <TimelineDot state={dotFor("delivered", stage)} />
+              <TimelineDot state={stepState("delivered", stage)} />
             </div>
             <div
               className={`text-[15px] font-medium ${labelClass("delivered", stage)}`}
@@ -254,6 +205,17 @@ export function ConfirmScreen({
         >
           <MessageCircle className="size-5 text-brand" strokeWidth={1.5} />
           {t("problem")}
+        </button>
+
+        {/* The way out of this screen. The course keeps running behind it: the
+            order screen shows a bar that comes straight back here. */}
+        <button
+          type="button"
+          onClick={onNewOrder}
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-[10px] text-[15px] font-medium text-brand transition-colors hover:bg-brand-bg"
+        >
+          <Plus className="size-5" strokeWidth={1.5} />
+          {t("newOrder")}
         </button>
       </div>
 

@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireOwner } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { syncCompanyAdhocDistance } from "@/lib/tenant";
 import { normalizePhone } from "@/lib/phone";
 
 function num(v: FormDataEntryValue | null): number | null {
@@ -13,9 +12,7 @@ function num(v: FormDataEntryValue | null): number | null {
 }
 
 /**
- * Update branding / zone / fee / hours for the caller's tenant. Fleetbase is
- * intentionally NOT editable here — a super-admin owns it (see
- * src/lib/actions/tenants.ts: updateTenantFleetbase).
+ * Update branding / zone / fee / hours for the caller's tenant.
  *
  * requireOwner, not requireTenant: this writes with the service-role client, so
  * RLS is not a second line of defence — this guard is the only one. A sub-driver
@@ -69,10 +66,10 @@ export async function updateGeneral(formData: FormData) {
     .eq("id", profile.tenantId);
   if (error) redirect("/dashboard/settings?error=save");
 
-  // Keep the Fleetbase company's driver-visibility radius in step with the zone
-  // the owner just drew. Best-effort: a Fleetbase hiccup must not make the
-  // settings save look like it failed — the zone itself is already persisted.
-  await syncCompanyAdhocDistance(profile.tenantId, zone.radiusKm);
+  // Nothing to mirror outwards: the zone drawn here is the whole truth about
+  // where this tenant delivers. Which drivers get told about a course is a
+  // separate question, answered by tenants.dispatch_radius_km against the
+  // driver's own position — see push_targets() in migration 0019.
 
   revalidatePath("/dashboard/settings");
   revalidatePath(`/t/${profile.tenantId}`);

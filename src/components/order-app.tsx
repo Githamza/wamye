@@ -12,8 +12,10 @@ import {
   type DeliveryStatus,
 } from "@/components/delivery-block";
 import { ConfirmScreen } from "@/components/confirm-screen";
+import { LiveCourses, type LiveCourse } from "@/components/live-courses";
 import { ClosedOverlay } from "@/components/closed-overlay";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { Logo } from "@/components/logo";
 import type { Commerce, TenantPublicConfig } from "@/lib/config-types";
 import { evaluatePosition, simulatedPosition } from "@/lib/geo";
 import { formatDinar } from "@/lib/format";
@@ -21,12 +23,22 @@ import { startingFee } from "@/lib/fees";
 import { formatPhone, isValidPhone, normalizePhone } from "@/lib/phone";
 import { closedState, isOpenNow } from "@/lib/hours";
 import {
+  type ActiveOrder,
   type LastOrder,
+  addActiveOrder,
+  clearActiveOrder,
+  loadActiveOrders,
   loadLastOrder,
   nextCourseNumber,
   saveLastOrder,
 } from "@/lib/storage";
-import type { ApiErrorBody, CreatedOrder, Quote } from "@/lib/order-types";
+import { useTrackedOrders } from "@/lib/hooks/use-tracked-orders";
+import {
+  isSettled,
+  type ApiErrorBody,
+  type CreatedOrder,
+  type Quote,
+} from "@/lib/order-types";
 
 type Screen = "order" | "confirm";
 
@@ -57,7 +69,7 @@ type InstallPromptEvent = Event & {
  * The whole customer ordering flow (order → confirm), driven entirely by a
  * tenant's public config. Rendered by src/app/t/[slug]/page.tsx, which loads
  * that config server-side. All API calls carry the tenant slug so the server
- * routes act on the right Fleetbase company.
+ * routes file the order against the right tenant.
  */
 export function OrderApp({ config }: { config: TenantPublicConfig }) {
   const t = useTranslations("Order");
@@ -88,8 +100,15 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
 
   // ---- screen / meta state ----
   const [screen, setScreen] = useState<Screen>("order");
-  const [courseNumber, setCourseNumber] = useState(47);
-  const [trackingToken, setTrackingToken] = useState<string | null>(null);
+  /**
+   * Every course still running, newest first. They outlive the confirm screen —
+   * the customer can go back and order again while one is on its way — and they
+   * survive a reload, which is the only reason they are persisted at all: the
+   * tracking tokens exist nowhere else.
+   */
+  const [courses, setCourses] = useState<ActiveOrder[]>([]);
+  /** Which one the confirm screen is showing. */
+  const [viewing, setViewing] = useState<ActiveOrder | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [returning, setReturning] = useState<LastOrder | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -109,6 +128,10 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
       setPhone(last.phone);
       setPrenom(last.prenom);
     }
+    // Courses still running from a previous visit. The form stays the landing
+    // screen — the bar above it is the way back — so a reload is never hijacked
+    // by a timeline the customer may be done with.
+    setCourses(loadActiveOrders(config.slug));
     const onPrompt = (e: Event) => {
       e.preventDefault();
       installPrompt.current = e as InstallPromptEvent;
@@ -183,6 +206,55 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
   }, [deliveryStatus, order, hasCommerce, phoneValid]);
 
   const canSubmit = blocked === null;
+
+  // ---- live courses ----
+  // One poll for all of them, shared with the confirm screen: opening a course
+  // does not start a second poll of it.
+  const tokens = useMemo(
+    () =>
+      courses
+        .map((c) => c.trackingToken)
+        .filter((tk): tk is string => tk !== null),
+    [courses],
+  );
+  const tracked = useTrackedOrders(tokens);
+
+  const stageOf = (c: ActiveOrder) =>
+    (c.trackingToken ? tracked[c.trackingToken]?.stage : undefined) ??
+    "searching";
+
+  /**
+   * What the bar offers. Gated on `mounted`: it comes from localStorage, which
+   * the server rendering this page knows nothing about.
+   */
+  const live = useMemo<LiveCourse[]>(() => {
+    if (!mounted) return [];
+    return courses
+      .map((course) => {
+        const t = course.trackingToken ? tracked[course.trackingToken] : null;
+        return {
+          course,
+          stage: t?.stage ?? "searching",
+          driverName: t?.driverName ?? null,
+        };
+      })
+      .filter((c) => !isSettled(c.stage));
+  }, [mounted, courses, tracked]);
+
+  // Settled courses leave localStorage so they do not come back as "searching"
+  // on the next visit, for the second it takes a poll to settle them again.
+  // Effects are for external systems, and storage is one — `courses` itself is
+  // left alone, since `live` already filters on the polled stage.
+  const cleared = useRef(new Set<number>());
+  useEffect(() => {
+    for (const c of courses) {
+      const stage = c.trackingToken ? tracked[c.trackingToken]?.stage : null;
+      if (!stage || !isSettled(stage)) continue;
+      if (cleared.current.has(c.createdAt)) continue;
+      cleared.current.add(c.createdAt);
+      clearActiveOrder(config.slug, c.createdAt);
+    }
+  }, [courses, tracked, config.slug]);
 
   /**
    * The delivery price, announced before anything is filled in — it is the
@@ -309,9 +381,16 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
 
       const created = (await res.json()) as CreatedOrder;
 
-      const course = nextCourseNumber(config.slug);
-      setCourseNumber(course);
-      setTrackingToken(created.trackingToken ?? null);
+      const running: ActiveOrder = {
+        trackingToken: created.trackingToken ?? null,
+        courseNumber: nextCourseNumber(config.slug),
+        order: order.trim(),
+        commerceName: commerceLabel,
+        fee,
+        createdAt: Date.now(),
+      };
+      setCourses(addActiveOrder(config.slug, running));
+      setViewing(running);
       saveLastOrder(config.slug, {
         order: order.trim(),
         commerce,
@@ -327,6 +406,23 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  /**
+   * Back to the form for another order. What was just sent is deliberately
+   * cleared — the customer is writing a new one, and the reorder card above
+   * already offers the previous one back in one tap. Address, phone and name
+   * stay: same customer, same doorstep, so the quote holds.
+   */
+  function handleNewOrder() {
+    setOrder("");
+    setScreen("order");
+    bodyRef.current?.scrollTo({ top: 0 });
+  }
+
+  function handleOpenCourse(course: ActiveOrder) {
+    setViewing(course);
+    setScreen("confirm");
   }
 
   function handleRecommander() {
@@ -363,12 +459,14 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
       <div className="relative flex min-h-[100dvh] w-full flex-col overflow-hidden bg-app sm:h-[844px] sm:min-h-0 sm:w-[390px] sm:rounded-[28px] sm:border sm:border-frame sm:shadow-[0_12px_32px_rgba(28,25,23,0.10)]">
         {/* Header */}
         <header className="flex h-[72px] flex-none items-center gap-3 border-b border-hair bg-white px-5">
-          <div className="flex size-10 flex-none items-center justify-center rounded-full border border-brand-border bg-brand-bg text-xl">
-            {config.branding.logoEmoji ?? "🛵"}
-          </div>
+          {/* The Wamye mark, not the tenant's emoji: the customer is on Wamye,
+              and the line beside it already names the neighbourhood served. */}
+          <Logo variant="mark" className="size-10 flex-none" />
           <div className="min-w-0 flex-1">
             <div className="truncate text-base font-semibold text-stone-ink">
-              {config.branding.name}
+              {config.branding.areaLabel
+                ? t("headerTitle", { area: config.branding.areaLabel })
+                : t("headerTitleNoArea")}
             </div>
             <div className="mt-0.5 flex items-center gap-1.5 text-[13px] text-stone-muted">
               <span
@@ -377,19 +475,13 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
                 }`}
               />
               {/* Truncates rather than wraps: the header is a fixed 72px, and
-                  an opening time plus an area name overruns it in either
-                  language. Secondary detail, so clipping it is fine. */}
+                  an opening time overruns it in either language. Secondary
+                  detail, so clipping it is fine. The area name lives in the
+                  title above, so it is not repeated here. */}
               <span className="truncate">
-                {/* Both halves are standalone labels, so the join survives
-                    translation; only the two labels themselves need keys. */}
-                {[
-                  isOpen
-                    ? tHours("openUntil", { hour: config.hours.closeHour })
-                    : tStatus("closed"),
-                  config.branding.areaLabel,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
+                {isOpen
+                  ? tHours("openUntil", { hour: config.hours.closeHour })
+                  : tStatus("closed")}
               </span>
             </div>
           </div>
@@ -413,8 +505,16 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
           </div>
         )}
 
+        {/* Deliveries in progress. Directly under the header and outside the
+            scroller, so a running course cannot be scrolled out of reach — and
+            it takes the welcome bar's place rather than stacking on it: while a
+            driver is on the move, that is the news, not the greeting. */}
+        {screen === "order" && (
+          <LiveCourses courses={live} onOpen={handleOpenCourse} />
+        )}
+
         {/* Returning-customer welcome */}
-        {mounted && returning && screen === "order" && (
+        {mounted && returning && live.length === 0 && screen === "order" && (
           <div className="anim-fade-in flex-none border-b border-brand-border bg-brand-bg px-5 py-2.5 text-[15px] font-medium text-brand-ink">
             {returning.prenom
               ? t("welcomeBack", { name: returning.prenom })
@@ -576,14 +676,28 @@ export function OrderApp({ config }: { config: TenantPublicConfig }) {
         )}
 
         {/* ---------- CONFIRM SCREEN ---------- */}
-        {screen === "confirm" && (
+        {/* Rendered from the stored course, not the form: the form is free to
+            hold the *next* order by the time the customer comes back here. */}
+        {screen === "confirm" && viewing && (
           <ConfirmScreen
-            trackingToken={trackingToken}
+            key={viewing.createdAt}
+            stage={stageOf(viewing)}
+            driverName={
+              (viewing.trackingToken
+                ? tracked[viewing.trackingToken]?.driverName
+                : null) ?? null
+            }
+            trackingNumber={
+              (viewing.trackingToken
+                ? tracked[viewing.trackingToken]?.trackingNumber
+                : null) ?? null
+            }
             brandName={config.branding.name}
-            courseNumber={courseNumber}
-            order={order.trim()}
-            commerceName={commerceLabel}
-            fee={fee}
+            courseNumber={viewing.courseNumber}
+            order={viewing.order}
+            commerceName={viewing.commerceName}
+            fee={viewing.fee}
+            onNewOrder={handleNewOrder}
             onProblem={() =>
               toast(
                 supportPhone

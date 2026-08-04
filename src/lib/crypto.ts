@@ -1,9 +1,13 @@
 // ============================================================
 // Secret encryption at rest — SERVER ONLY.
 //
-// AES-256-GCM using APP_ENCRYPTION_KEY (32 bytes, base64). Protects each
-// tenant's Fleetbase API key in the database, on top of the tenant_secrets
-// RLS lockdown. The stored blob is base64(iv[12] || authTag[16] || cipher).
+// AES-256-GCM using APP_ENCRYPTION_KEY (32 bytes, base64). The stored blob is
+// base64(iv[12] || authTag[16] || cipher).
+//
+// No live caller: the only secret ever stored this way was a tenant's
+// Fleetbase API key, and nothing reaches Fleetbase any more. Kept because the
+// `tenant_secrets` rows are still in the database — deleting this module is
+// what makes them permanently unreadable, so it goes when the table does.
 // ============================================================
 
 import "server-only";

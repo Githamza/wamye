@@ -30,7 +30,7 @@ function avatarNode(member: CrewMember): HTMLElement {
     "color:#fff",
     "font:600 12px/1 system-ui, sans-serif",
     `background:${member.positionFresh ? avatarTint(member.id) : "#A8A29E"}`,
-    `box-shadow:0 0 0 2px ${member.order ? "#0F766E" : "#fff"}, 0 2px 6px rgba(28,25,23,.3)`,
+    `box-shadow:0 0 0 2px ${member.order ? "#00819F" : "#fff"}, 0 2px 6px rgba(28,25,23,.3)`,
   ].join(";");
   el.textContent = initials(member.name);
   return el;

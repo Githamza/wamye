@@ -39,9 +39,6 @@ export default async function AdminHomePage(props: {
     .order("created_at", { ascending: false });
   const tenants = (data ?? []) as TenantRow[];
 
-  const { data: secrets } = await supabase.from("tenant_secrets").select("tenant_id");
-  const connected = new Set((secrets ?? []).map((s) => s.tenant_id as string));
-
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -84,9 +81,6 @@ export default async function AdminHomePage(props: {
                     {t.branding?.instagram && (
                       <span className="text-stone-muted2">@{t.branding.instagram}</span>
                     )}
-                    <span className={connected.has(t.id) ? "text-success" : "text-stone-faint"}>
-                      {connected.has(t.id) ? "Fleetbase connecté" : "Fleetbase non connecté"}
-                    </span>
                   </div>
                 </div>
                 <span className="text-[18px] text-stone-faint">›</span>

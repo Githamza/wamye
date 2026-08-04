@@ -30,14 +30,18 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
 
-  /* Brand palette — transcribed from Livraison Djerba.dc.html */
-  --color-brand: #0F766E;
-  --color-brand-hover: #115E59;
-  --color-brand-active: #134E4A;
-  --color-brand-ink: #134E4A;
-  --color-brand-bg: #F0FDFA;
-  --color-brand-border: #99F6E4;
-  --color-brand-fill: #CCFBF1;
+  /* Brand palette — the brand blue, with its darker states and its surfaces
+     stepped down the same hue so a tint never reads as a second colour.
+     The brand itself is the darkest step that still reads as the brand: white
+     on it clears 4.5:1, which the lighter cyan it came from did not, and the
+     ordering CTA is white-on-brand at 16px. */
+  --color-brand: #00819F;
+  --color-brand-hover: #0E7490;
+  --color-brand-active: #155E75;
+  --color-brand-ink: #164E63;
+  --color-brand-bg: #ECFEFF;
+  --color-brand-border: #A5F3FC;
+  --color-brand-fill: #CFFAFE;
   --color-amber: #F59E0B;
   --color-success: #16A34A;
   --color-success-bg: #F0FDF4;
@@ -92,18 +96,18 @@
   --card-foreground: #1C1917;
   --popover: #FFFFFF;
   --popover-foreground: #1C1917;
-  --primary: #0F766E;
+  --primary: #00819F;
   --primary-foreground: #FFFFFF;
   --secondary: #F5F5F4;
   --secondary-foreground: #1C1917;
   --muted: #F5F5F4;
   --muted-foreground: #78716C;
-  --accent: #F0FDFA;
-  --accent-foreground: #134E4A;
+  --accent: #ECFEFF;
+  --accent-foreground: #164E63;
   --destructive: #DC2626;
   --border: #E7E5E4;
   --input: #E7E5E4;
-  --ring: #0F766E;
+  --ring: #00819F;
 }
 
 @layer base {
@@ -128,3 +132,20 @@
 .anim-fade-in { animation: fadeIn 200ms ease-out; }
 .draw-stroke { animation: drawStroke 600ms ease-out forwards; }
 .draw-check { animation: drawStroke 350ms ease-out 500ms forwards; }
+
+/* Entrances and pulses are decoration; the check marks that draw themselves are
+   not — those must still land, so they run once at full speed instead of being
+   cancelled into an invisible dash offset. */
+@media (prefers-reduced-motion: reduce) {
+  .anim-pop-in,
+  .anim-fade-up,
+  .anim-fade-in,
+  .animate-pulse-dot {
+    animation: none;
+  }
+  .draw-stroke,
+  .draw-check {
+    animation-duration: 1ms;
+    animation-delay: 0ms;
+  }
+}

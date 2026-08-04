@@ -99,6 +99,8 @@
     "notFound": "Introuvable"
   },
   "Order": {
+    "headerTitle": "Livraison {area} by Wamye",
+    "headerTitleNoArea": "Livraison by Wamye",
     "welcomeBack": "Re-bonjour {name} 👋",
     "welcomeBackFallback": "Re-bonjour 👋",
     "reorderTitle": "Recommander comme la dernière fois",
@@ -161,9 +163,15 @@
     "outzoneBody": "Désolé, cette adresse est hors de notre zone de livraison",
     "mapHint": "Déplacez le pin si besoin"
   },
+  "Courses": {
+    "running": "{count, plural, other {# courses en cours}}",
+    "follow": "Suivre la course #{number}",
+    "enrouteWith": "{name} est en route"
+  },
   "Confirm": {
     "sent": "Commande envoyée !",
     "delivered": "Commande livrée !",
+    "onTheWay": "Votre commande arrive",
     "courseNumber": "Course #{number}",
     "tracking": "Suivi {number}",
     "canceled": "Cette commande a été annulée. Écrivez-nous si besoin.",
@@ -177,7 +185,8 @@
     "pwaFallbackName": "cette app",
     "pwaAdd": "Ajouter",
     "pwaDismiss": "Fermer",
-    "driverOnWay": "{name} est en route."
+    "driverOnWay": "{name} est en route.",
+    "newOrder": "Passer une autre commande"
   },
   "Closed": {
     "body": "Laissez votre numéro, on vous prévient à l'ouverture",

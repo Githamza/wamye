@@ -1,31 +1,21 @@
 // ============================================================
 // Tenant Data Access Layer — SERVER ONLY.
 //
-// Resolves a tenant's PUBLIC config (branding/zone/fee/hours) for
-// the ordering page, and its SECRET Fleetbase context (decrypted company key)
-// for order creation. Uses the service-role client so it works for the
-// anonymous public page; never returns secrets to the client.
+// Resolves a tenant's public config (branding/zone/fee/hours) for the ordering
+// page. Uses the service-role client so it works for the anonymous public page.
 //
-// Graceful migration: until a tenant exists in the database, callers fall
-// back to DEFAULT_TENANT_CONFIG (public) and the env Fleetbase key (secret),
-// so the app behaves exactly as it did single-tenant.
+// There is no secret half any more: this file used to also hand out a decrypted
+// Fleetbase company key, back when creating an order meant calling out to
+// Fleetbase. Orders live in Supabase now, and so does dispatch, so nothing here
+// reaches outside the database.
+//
+// Graceful migration: until a tenant exists in the database, callers fall back
+// to DEFAULT_TENANT_CONFIG, so the app behaves exactly as it did single-tenant.
 // ============================================================
 
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { decryptSecret } from "@/lib/crypto";
 import { DEFAULT_TENANT_CONFIG } from "@/lib/default-config";
-import {
-  defaultFleetbaseApiUrl,
-  envFleetbaseContext,
-  type FleetbaseContext,
-} from "@/lib/fleetbase";
-import {
-  adhocDistanceForZone,
-  getCompanyIdForKey,
-  isFleetbaseAdminConfigured,
-  setCompanyAdhocDistance,
-} from "@/lib/fleetbase-admin";
 import type { TenantPublicConfig } from "@/lib/config-types";
 
 export function isSupabaseConfigured(): boolean {
@@ -44,11 +34,6 @@ type TenantRow = {
   fee_config: TenantPublicConfig["feeConfig"];
   hours: TenantPublicConfig["hours"];
   phone_country: string | null;
-  fleetbase_api_url: string | null;
-  fleetbase_order_type: string | null;
-  fleetbase_dispatch: boolean;
-  fleetbase_adhoc: boolean;
-  fleetbase_adhoc_distance: number | null;
   is_active: boolean;
 };
 
@@ -57,7 +42,7 @@ async function fetchTenantRow(slug: string): Promise<TenantRow | null> {
   const { data, error } = await supabase
     .from("tenants")
     .select(
-      "id, slug, name, branding, zone, fee_config, hours, phone_country, fleetbase_api_url, fleetbase_order_type, fleetbase_dispatch, fleetbase_adhoc, fleetbase_adhoc_distance, is_active",
+      "id, slug, name, branding, zone, fee_config, hours, phone_country, is_active",
     )
     .eq("slug", slug)
     .eq("is_active", true)
@@ -127,115 +112,6 @@ export async function getTenantPublicConfig(
     hours: row.hours,
     phoneCountry: row.phone_country ?? "TN",
   };
-}
-
-/**
- * The Fleetbase context for a tenant (decrypted company key). Returns null
- * when the tenant has no stored key. Server-only — never expose the result.
- */
-export async function getTenantFleetbaseContext(
-  slug: string,
-): Promise<FleetbaseContext | null> {
-  if (!isSupabaseConfigured()) return null;
-  const row = await fetchTenantRow(slug);
-  if (!row) return null;
-
-  const supabase = createAdminClient();
-  const { data: secret, error } = await supabase
-    .from("tenant_secrets")
-    .select("fleetbase_api_key_encrypted")
-    .eq("tenant_id", row.id)
-    .maybeSingle();
-
-  if (error || !secret?.fleetbase_api_key_encrypted) return null;
-
-  let apiKey: string;
-  try {
-    apiKey = decryptSecret(secret.fleetbase_api_key_encrypted as string);
-  } catch (err) {
-    console.error("[tenant] key decrypt failed:", (err as Error).message);
-    return null;
-  }
-
-  return {
-    apiUrl: row.fleetbase_api_url ?? defaultFleetbaseApiUrl(),
-    apiKey,
-    orderType: row.fleetbase_order_type ?? undefined,
-    dispatch: row.fleetbase_dispatch,
-    adhoc: row.fleetbase_adhoc,
-    adhocDistance: row.fleetbase_adhoc_distance ?? undefined,
-  };
-}
-
-/**
- * Align the tenant's Fleetbase company with a delivery-zone radius, so its
- * drivers actually see the orders inside that zone.
- *
- * Best-effort by design, and every early return is a legitimate state: no
- * stored key yet (the company is provisioned by hand, after signup), no admin
- * credentials configured (see fleetbase-admin.ts — the public API cannot write
- * this), or Fleetbase being unreachable. None of those should fail whatever
- * operation asked for the sync; the zone is the source of truth either way and
- * the next save retries.
- *
- * Returns the radius now in force, or null when nothing was written.
- */
-export async function syncCompanyAdhocDistance(
-  tenantId: string,
-  radiusKm: number,
-): Promise<number | null> {
-  if (!isSupabaseConfigured() || !isFleetbaseAdminConfigured()) return null;
-
-  try {
-    const supabase = createAdminClient();
-    const { data: row } = await supabase
-      .from("tenants")
-      .select("fleetbase_api_url")
-      .eq("id", tenantId)
-      .maybeSingle();
-    const { data: secret } = await supabase
-      .from("tenant_secrets")
-      .select("fleetbase_api_key_encrypted")
-      .eq("tenant_id", tenantId)
-      .maybeSingle();
-
-    if (!secret?.fleetbase_api_key_encrypted) return null;
-
-    const apiUrl =
-      (row?.fleetbase_api_url as string | null) ?? defaultFleetbaseApiUrl();
-    const apiKey = decryptSecret(secret.fleetbase_api_key_encrypted as string);
-
-    // The tenant→company mapping lives in the key itself, not in our schema.
-    const companyId = await getCompanyIdForKey(apiKey, apiUrl);
-    if (!companyId) return null;
-
-    return await setCompanyAdhocDistance(
-      companyId,
-      adhocDistanceForZone(radiusKm),
-      apiUrl,
-    );
-  } catch (err) {
-    console.error(
-      "[tenant] adhoc distance sync failed:",
-      (err as Error).message,
-    );
-    return null;
-  }
-}
-
-/**
- * Resolve a Fleetbase context for a request: the tenant's stored company key
- * when a slug resolves to a configured tenant, otherwise the legacy env key.
- * Returns null when neither is available (caller should 503).
- */
-export async function resolveFleetbaseContext(
-  slug?: string | null,
-): Promise<FleetbaseContext | null> {
-  if (slug) {
-    const ctx = await getTenantFleetbaseContext(slug);
-    if (ctx) return ctx;
-  }
-  return envFleetbaseContext();
 }
 
 /**

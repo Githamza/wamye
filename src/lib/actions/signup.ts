@@ -35,9 +35,9 @@ export async function signupDriver(formData: FormData) {
     redirect("/signup?error=missing");
   }
 
-  // The phone is required, not cosmetic: it is what registers this person as a
-  // Fleetbase driver at approval, and a tenant whose owner has no number can be
-  // approved but never dispatched to.
+  // The phone is required, not cosmetic: it is how a customer reaches the
+  // driver mid-course, and it is the support number on the tenant's own
+  // ordering page.
   //
   // Validated and STORED as the 8 local digits — normalizePhone also absorbs
   // whatever the browser let through (spaces, a pasted prefix the client-side
@@ -80,7 +80,6 @@ export async function signupDriver(formData: FormData) {
       fee_config: { baseFee: 2.5, feePerKm: 0.6, minFee: 3 },
       hours: { openHour: 8, closeHour: 23, alwaysOpen: false },
       phone_country: "TN",
-      fleetbase_order_type: "storefront",
       status: "pending",
       is_active: false,
     })
@@ -104,8 +103,8 @@ export async function signupDriver(formData: FormData) {
   // 3. Link the login to its tenant as a tenant_admin (the "driver"). They are
   //    the team's owner: parent_profile_id stays null and status defaults to
   //    'active' — a new driver waits on tenants.status, not their own.
-  //    The phone is stored on the profile too, not just in branding: it is what
-  //    registers them as a Fleetbase driver, which needs name + email + phone.
+  //    The phone is stored on the profile too, not just in branding: the team
+  //    view and the customer's course reach for it there.
   await supabase.from("profiles").upsert({
     id: created.user.id,
     tenant_id: tenant.id,

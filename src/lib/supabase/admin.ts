@@ -2,9 +2,9 @@
 // Supabase service-role client — SERVER ONLY. Bypasses RLS.
 //
 // Use only where the request must act outside a single tenant's RLS
-// scope: reading tenant_secrets (the encrypted Fleetbase key), writing
-// the orders mirror from the anonymous public ordering page, and
-// super-admin tenant provisioning. Never import from a client component.
+// scope: writing the order from the anonymous public ordering page, the
+// customer's tracking read, and super-admin tenant provisioning. Never
+// import from a client component.
 // ============================================================
 
 import "server-only";

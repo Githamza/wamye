@@ -140,9 +140,8 @@ export async function POST(request: Request) {
   };
 
   try {
-    // Supabase holds the order outright now. Fleetbase is no longer written to:
-    // nothing had read it for a while, and keeping the write meant a course
-    // could be assigned in two systems that knew nothing of each other.
+    // Supabase holds the order outright: one system, so a course cannot be
+    // assigned twice by two that know nothing of each other.
     const record = await createOrderRecord(tenant.id, order);
 
     // after(): the customer's 201 must not wait on the fan-out.

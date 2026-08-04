@@ -59,7 +59,11 @@ export function initials(name: string | null): string {
  * one less column to keep in sync, and ids never change.
  */
 const AVATAR_TINTS = [
-  "#0F766E", // brand
+  // The brand's darker step, not the brand itself: these discs carry white
+  // initials at 12px, and the brand cyan leaves them at 3.5:1 where every
+  // other tint here sits above 5:1 — one driver in six would be the unreadable
+  // one.
+  "#0E7490",
   "#B45309",
   "#6D28D9",
   "#B91C1C",

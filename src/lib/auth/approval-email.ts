@@ -52,13 +52,13 @@ function renderHtml(kind: AccountReadyKind, actionLink: string): string {
   const { headline, body, cta, footer } = COPY[kind];
   return `<!doctype html>
 <html lang="fr">
-  <body style="margin:0;padding:24px;background:#F0FDFA;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif">
-    <div style="max-width:440px;margin:0 auto;background:#ffffff;border:1px solid #99F6E4;border-radius:12px;padding:32px 28px">
+  <body style="margin:0;padding:24px;background:#ECFEFF;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif">
+    <div style="max-width:440px;margin:0 auto;background:#ffffff;border:1px solid #A5F3FC;border-radius:12px;padding:32px 28px">
       <div style="font-size:28px">🛵</div>
-      <h1 style="margin:12px 0 8px;font-size:20px;color:#134E4A">${headline}</h1>
+      <h1 style="margin:12px 0 8px;font-size:20px;color:#164E63">${headline}</h1>
       <p style="margin:0 0 20px;font-size:15px;line-height:1.5;color:#333">${body}</p>
       <a href="${actionLink}"
-         style="display:inline-block;background:#0F766E;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:10px">
+         style="display:inline-block;background:#00819F;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:10px">
         ${cta}
       </a>
       <p style="margin:24px 0 0;font-size:13px;line-height:1.5;color:#777">
@@ -170,10 +170,10 @@ export async function sendSignupReceivedEmail(
     const greeting = name ? `Bonjour ${name},` : "Bonjour,";
     const html = `<!doctype html>
 <html lang="fr">
-  <body style="margin:0;padding:24px;background:#F0FDFA;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif">
-    <div style="max-width:440px;margin:0 auto;background:#ffffff;border:1px solid #99F6E4;border-radius:12px;padding:32px 28px">
+  <body style="margin:0;padding:24px;background:#ECFEFF;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif">
+    <div style="max-width:440px;margin:0 auto;background:#ffffff;border:1px solid #A5F3FC;border-radius:12px;padding:32px 28px">
       <div style="font-size:28px">🛵</div>
-      <h1 style="margin:12px 0 8px;font-size:20px;color:#134E4A">Merci pour votre inscription !</h1>
+      <h1 style="margin:12px 0 8px;font-size:20px;color:#164E63">Merci pour votre inscription !</h1>
       <p style="margin:0 0 16px;font-size:15px;line-height:1.5;color:#333">${greeting}</p>
       <p style="margin:0 0 16px;font-size:15px;line-height:1.5;color:#333">
         Votre compte Wamye a bien été créé et est en cours de validation par notre équipe.
@@ -257,10 +257,10 @@ export async function sendJoinRequestEmail(
 
     const html = `<!doctype html>
 <html lang="fr">
-  <body style="margin:0;padding:24px;background:#F0FDFA;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif">
-    <div style="max-width:440px;margin:0 auto;background:#ffffff;border:1px solid #99F6E4;border-radius:12px;padding:32px 28px">
+  <body style="margin:0;padding:24px;background:#ECFEFF;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif">
+    <div style="max-width:440px;margin:0 auto;background:#ffffff;border:1px solid #A5F3FC;border-radius:12px;padding:32px 28px">
       <div style="font-size:28px">🛵</div>
-      <h1 style="margin:12px 0 8px;font-size:20px;color:#134E4A">Une demande pour rejoindre votre équipe</h1>
+      <h1 style="margin:12px 0 8px;font-size:20px;color:#164E63">Une demande pour rejoindre votre équipe</h1>
       <p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#333">
         <strong>${who}</strong> a utilisé votre lien d'invitation et attend votre réponse.
       </p>
@@ -268,7 +268,7 @@ export async function sendJoinRequestEmail(
         Tant que vous n'avez pas accepté, cette personne ne voit aucune de vos courses.
       </p>
       <a href="${teamUrl}"
-         style="display:inline-block;background:#0F766E;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:10px">
+         style="display:inline-block;background:#00819F;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:10px">
         Voir la demande
       </a>
       <p style="margin:24px 0 0;font-size:12px;line-height:1.5;color:#999">

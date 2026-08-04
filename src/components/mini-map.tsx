@@ -50,14 +50,14 @@ function MockMap() {
         height="34"
         viewBox="0 0 24 24"
         fill="none"
-        stroke="#0F766E"
+        stroke="#00819F"
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[88%] [filter:drop-shadow(0_2px_3px_rgba(28,25,23,0.25))]"
       >
-        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" fill="#F0FDFA" />
-        <circle cx="12" cy="10" r="3" fill="#0F766E" stroke="none" />
+        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" fill="#ECFEFF" />
+        <circle cx="12" cy="10" r="3" fill="#00819F" stroke="none" />
       </svg>
     </MapFrame>
   );

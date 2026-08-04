@@ -22,10 +22,14 @@ export function formatPhone(raw: string): string {
 const DIAL_CODES: Record<string, string> = { TN: "+216", FR: "+33" };
 
 /**
- * Best-effort E.164 for systems that demand it (Fleetbase driver + company
- * records). The signup field is free text with a `+216…` placeholder and no
- * validation, so all of these turn up in practice and must land on the same
- * number:
+ * Best-effort E.164 for systems that demand it.
+ *
+ * Currently unused: its only caller was the Fleetbase driver/company sync,
+ * which is gone. Kept because the next thing that needs a full number — an SMS
+ * provider — will need exactly this, and the parsing below is the hard part.
+ *
+ * Phone input is free text with a `+216…` placeholder and no validation, so
+ * all of these turn up in practice and must land on the same number:
  *
  *     +216 20 123 456   20123456   00216 20123456   216 20123456
  *

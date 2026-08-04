@@ -8,8 +8,8 @@ import { useState } from "react";
  * The dial code is decoration, not data: the field submits the 8 local digits
  * and the server puts the country back on. That is what keeps the stored value
  * in one shape — the free-text version of this field produced +216…, 216…,
- * 00216… and bare digits, and the ones carrying a prefix broke the E.164
- * conversion that Fleetbase driver records depend on.
+ * 00216… and bare digits, so the same person could end up stored under four
+ * different numbers, and `clients` is keyed on (tenant_id, phone).
  *
  * Paste is sanitised rather than rejected: a number copied from WhatsApp
  * arrives as "+216 20 123 456", and dropping the prefix silently is friendlier

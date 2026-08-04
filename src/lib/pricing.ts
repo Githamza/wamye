@@ -12,10 +12,10 @@ import type { LatLng } from "@/lib/order-types";
 /**
  * The authoritative price of a course.
  *
- * The browser sends `fee` and `distanceKm` today and the server stored them
- * verbatim. That was survivable while Fleetbase held the record; it is not now
- * that this row IS the order and that number is what the driver gets paid. A
- * money field must never be client-supplied.
+ * The browser sends `fee` and `distanceKm`, and the server used to store them
+ * verbatim. It does not any more: the `orders` row IS the order, and that
+ * number is what the driver gets paid. A money field must never be
+ * client-supplied.
  *
  * Same math as the browser's estimate — feeForKm over the tenant's FeeConfig —
  * so an honest client sees no difference. It is only a forged one that does.

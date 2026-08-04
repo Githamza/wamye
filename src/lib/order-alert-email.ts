@@ -4,10 +4,9 @@
 // Web Push reaches a driver only once they have installed the app and granted
 // the permission, and on iPhone not at all until both. Email asks nothing of
 // anyone, so it stays the channel that always works — the floor under the
-// push, not a leftover from the Fleetbase era.
+// push.
 //
-// Recipients used to come from Fleetbase's driver list. They now come from
-// `profiles`, which is the roster the app itself maintains.
+// Recipients come from `profiles`, the roster the app itself maintains.
 //
 // Best-effort by design: an alert failure must never fail the customer's
 // order, so this module logs and swallows every error.
@@ -31,17 +30,17 @@ function renderHtml(input: CreateOrderInput, openUrl: string): string {
 
   return `<!doctype html>
 <html lang="fr">
-  <body style="margin:0;padding:24px;background:#F0FDFA;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif">
-    <div style="max-width:440px;margin:0 auto;background:#ffffff;border:1px solid #99F6E4;border-radius:12px;padding:32px 28px">
+  <body style="margin:0;padding:24px;background:#ECFEFF;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif">
+    <div style="max-width:440px;margin:0 auto;background:#ffffff;border:1px solid #A5F3FC;border-radius:12px;padding:32px 28px">
       <div style="font-size:28px">🛵</div>
-      <h1 style="margin:12px 0 8px;font-size:20px;color:#134E4A">Nouvelle course disponible</h1>
+      <h1 style="margin:12px 0 8px;font-size:20px;color:#164E63">Nouvelle course disponible</h1>
       <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#333">${facts}</p>
       <p style="margin:0 0 20px;font-size:15px;line-height:1.5;color:#333">
         Ouvrez votre tableau de bord pour voir le détail et accepter la course —
         premier arrivé, premier servi.
       </p>
       <a href="${openUrl}"
-         style="display:inline-block;background:#0F766E;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:10px">
+         style="display:inline-block;background:#00819F;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:10px">
         Voir la course
       </a>
       <p style="margin:24px 0 0;font-size:13px;line-height:1.5;color:#777">
@@ -85,8 +84,8 @@ function escapeHtml(s: string): string {
 }
 
 /**
- * Email every driver of the tenant's Fleetbase company that a new order is
- * up for grabs. Never throws.
+ * Email every active driver of the tenant that a new order is up for grabs.
+ * Never throws.
  */
 export async function sendNewOrderAlertEmails(
   tenantId: string,

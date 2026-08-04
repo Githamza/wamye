@@ -85,7 +85,7 @@ function renderHtml(
   <p style="font-size:17px;font-weight:600;margin:0 0 12px">${head}</p>
   <ul style="padding-left:18px;margin:0 0 16px">${rows}</ul>
   <p style="color:#57534e;margin:0 0 16px">${foot}</p>
-  <a href="${url}" style="display:inline-block;background:#0F766E;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600">Ouvrir le tableau de bord</a>
+  <a href="${url}" style="display:inline-block;background:#00819F;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600">Ouvrir le tableau de bord</a>
 </div>`;
 }
 

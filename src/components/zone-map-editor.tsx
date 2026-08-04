@@ -78,10 +78,10 @@ export function ZoneMapEditor({ initialLat, initialLng, initialRadiusKm }: Props
           radius: radiusKm * 1000,
           editable: true, // resize handles
           draggable: false, // centre is moved via the pin only
-          strokeColor: "#0F766E",
+          strokeColor: "#00819F",
           strokeOpacity: 0.9,
           strokeWeight: 2,
-          fillColor: "#0F766E",
+          fillColor: "#00819F",
           fillOpacity: 0.12,
         });
 

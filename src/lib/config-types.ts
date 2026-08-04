@@ -1,8 +1,8 @@
 // ============================================================
 // Tenant configuration DTOs — shared between server and browser.
-// No secrets here (the Fleetbase key lives server-side only): safe to
-// import from client components. A tenant's public config is what drives
-// the ordering page — branding, delivery zone, fee model, opening hours.
+// No secrets here: safe to import from client components. A tenant's public
+// config is what drives the ordering page — branding, delivery zone, fee
+// model, opening hours.
 // ============================================================
 
 import type { LatLng } from "@/lib/order-types";
@@ -58,10 +58,7 @@ export type Commerce = {
   lng: number;
 };
 
-/**
- * Everything the public ordering page needs for one tenant. Contains NO
- * secrets — the Fleetbase API key is read server-side only (see tenant.ts).
- */
+/** Everything the public ordering page needs for one tenant. No secrets. */
 export type TenantPublicConfig = {
   slug: string;
   branding: Branding;

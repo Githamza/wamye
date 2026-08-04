@@ -58,9 +58,6 @@ export default async function NewTenantPage(props: {
             <Field label="Nom affiché">
               <input name="name" placeholder="Chez Ali Livraison" required className={input} />
             </Field>
-            <Field label="Emoji logo">
-              <input name="logoEmoji" placeholder="🛵" className={input} />
-            </Field>
             <Field label="Zone (libellé)">
               <input name="areaLabel" placeholder="Sfax centre" className={input} />
             </Field>
@@ -99,20 +96,6 @@ export default async function NewTenantPage(props: {
               <input name="alwaysOpen" type="checkbox" className="size-4" /> Toujours ouvert
             </label>
           </div>
-        </section>
-
-        {/* Fleetbase */}
-        <section className="flex flex-col gap-4 rounded-[14px] border border-hair bg-white p-5">
-          <div className="text-[14px] font-semibold text-stone-ink">Fleetbase (dispatch)</div>
-          <Field label="URL de l'API">
-            <input name="apiUrl" placeholder="http://…" className={input} />
-          </Field>
-          <Field label="Order type">
-            <input name="orderType" defaultValue="storefront" className={input} />
-          </Field>
-          <Field label="Clé API (flb_live_…) — peut être ajoutée plus tard">
-            <input name="apiKey" type="password" autoComplete="off" placeholder="flb_live_…" className={input} />
-          </Field>
         </section>
 
         <button

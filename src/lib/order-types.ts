@@ -7,6 +7,34 @@
 export type OrderStage = "searching" | "enroute" | "delivered" | "canceled";
 
 /**
+ * The stages a course walks through, in order. `canceled` is deliberately not
+ * one of them: it is an exit, not a step, and has no place on the track.
+ */
+export const STAGE_ORDER: OrderStage[] = ["searching", "enroute", "delivered"];
+
+/** Where one step sits relative to the stage a course has actually reached. */
+export type StepState = "done" | "active" | "pending";
+
+/**
+ * Shared by the two places a course's progress is drawn — the vertical timeline
+ * on the confirm screen and the horizontal rail on each row of the live-course
+ * list — so the two can never disagree about what "en route" looks like.
+ */
+export function stepState(step: OrderStage, stage: OrderStage): StepState {
+  if (stage === "canceled") return step === "searching" ? "active" : "pending";
+  const cur = STAGE_ORDER.indexOf(stage);
+  const at = STAGE_ORDER.indexOf(step);
+  if (at < cur) return "done";
+  if (at === cur) return stage === "delivered" ? "done" : "active";
+  return "pending";
+}
+
+/** True once the course can no longer change — nothing left to poll or follow. */
+export function isSettled(stage: OrderStage): boolean {
+  return stage === "delivered" || stage === "canceled";
+}
+
+/**
  * Why an API call failed.
  *
  * A code, not a sentence. These routes are public and sit outside the proxy's
@@ -66,12 +94,11 @@ export type CreateOrderInput = {
   /**
    * Pickup coordinates. Required, and never inferred server-side.
    *
-   * Fleetbase geocodes a pickup that arrives without a location, using the
-   * street string alone. When that string is just a shop name it lands
-   * anywhere on earth — we had live orders whose pickup resolved to Tennessee
-   * — and the order is then invisible to every driver, since adhoc matching is
-   * a radius around the pickup point. So the browser must send a resolved
-   * Google Place, or the order is refused.
+   * Dispatch is a radius around the pickup point (push_targets(), migration
+   * 0019), so a pickup without real coordinates is a course no driver is told
+   * about. Geocoding a shop name server-side is worse than refusing: we had
+   * live orders whose pickup resolved to Tennessee. So the browser must send a
+   * resolved Google Place, or the order is refused.
    */
   commercePosition: LatLng;
   repere?: string;
@@ -87,7 +114,7 @@ export type CreateOrderInput = {
 
 /** What POST /api/orders returns once the order exists. */
 export type CreatedOrder = {
-  /** Fleetbase public id, e.g. "order_xxx". Becomes the Supabase uuid at cutover. */
+  /** The `orders` row uuid. */
   id: string;
   trackingNumber: string | null;
   status: string;
@@ -150,18 +177,3 @@ export type DriverOrder = {
   driver_id: string | null;
 };
 
-/**
- * A Fleetbase order's status, as read by fleetbase.ts `getOrder`.
- *
- * No longer served over HTTP: GET /api/orders/[id] was deleted — it proxied
- * Fleetbase with no ownership check, so any id was readable by anyone.
- * /api/track/[token] replaced it. This type survives only until the cutover
- * removes the Fleetbase client itself.
- */
-export type OrderStatus = {
-  id: string;
-  status: string;
-  stage: OrderStage;
-  trackingNumber: string | null;
-  driverAssigned: boolean;
-};
