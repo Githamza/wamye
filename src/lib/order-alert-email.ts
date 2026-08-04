@@ -37,20 +37,16 @@ function renderHtml(input: CreateOrderInput, openUrl: string): string {
       <h1 style="margin:12px 0 8px;font-size:20px;color:#134E4A">Nouvelle course disponible</h1>
       <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#333">${facts}</p>
       <p style="margin:0 0 20px;font-size:15px;line-height:1.5;color:#333">
-        Ouvrez l'application <strong>Navigator</strong> sur votre téléphone pour
-        voir le détail et accepter la course — premier arrivé, premier servi.
+        Ouvrez votre tableau de bord pour voir le détail et accepter la course —
+        premier arrivé, premier servi.
       </p>
-      <!-- https, never flbnavigator:// — Brevo rewrites every href into a
-           click-tracking URL and rejects a scheme with no host ("cleanURL:
-           invalid URL: host missing"), which sent drivers to a 404. The
-           relay page fires the deep link from the browser instead. -->
       <a href="${openUrl}"
          style="display:inline-block;background:#0F766E;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:10px">
-        Ouvrir Navigator
+        Voir la course
       </a>
       <p style="margin:24px 0 0;font-size:13px;line-height:1.5;color:#777">
-        Si le bouton ne fait rien, ouvrez simplement l'application Navigator
-        et tirez la liste des commandes vers le bas pour la rafraîchir.
+        Si la course n'apparaît plus, c'est qu'un autre livreur de l'équipe l'a
+        déjà prise.
       </p>
     </div>
   </body>
@@ -73,11 +69,11 @@ function renderText(input: CreateOrderInput, openUrl: string): string {
 
 ${facts}
 
-Ouvrez l'application Navigator sur votre téléphone pour voir le détail et accepter la course — premier arrivé, premier servi.
+Ouvrez votre tableau de bord pour voir le détail et accepter la course — premier arrivé, premier servi.
 
 ${openUrl}
 
-Si rien ne s'affiche, tirez la liste des commandes vers le bas pour la rafraîchir.`;
+Si la course n'apparaît plus, c'est qu'un autre livreur de l'équipe l'a déjà prise.`;
 }
 
 function escapeHtml(s: string): string {

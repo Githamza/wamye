@@ -42,8 +42,10 @@ export default async function PendingPage() {
     const thanks = tenant?.name ? `Merci ${tenant.name} !` : "Merci !";
     body = `${thanks} Votre inscription a bien été reçue. Un administrateur va valider votre compte et configurer la livraison. Vous pourrez alors accéder à votre tableau de bord.`;
   } else {
+    // The tenant name is usually unreadable from here (see the query note
+    // above), so the copy names the responsable rather than the business.
     body =
-      "Votre responsable vous a ajouté à son équipe. Un administrateur doit encore valider votre compte avant que vous puissiez recevoir des livraisons.";
+      "Votre demande a bien été envoyée. Votre responsable doit l'accepter avant que vous puissiez recevoir des livraisons — prévenez-le si l'attente se prolonge.";
   }
 
   return (

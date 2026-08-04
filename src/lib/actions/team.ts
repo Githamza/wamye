@@ -2,117 +2,25 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getProfile, requireOwner, requireRole } from "@/lib/auth/dal";
+import { requireOwner, requireRole } from "@/lib/auth/dal";
 import { sendAccountReadyEmail } from "@/lib/auth/approval-email";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getTenantFleetbaseContext } from "@/lib/tenant";
-import { isValidPhone, normalizePhone, toInternationalPhone } from "@/lib/phone";
-import { createFleetbaseClient, FleetbaseError } from "@/lib/fleetbase";
-import { checkIdentityConflict } from "@/lib/fleetbase-admin";
-import { navigatorConnectUrl } from "@/lib/navigator-link";
+import { isValidPhone, normalizePhone } from "@/lib/phone";
+import { regenerateTeamInvite } from "@/lib/invites";
 
 /**
- * Team management: a driver (tenant owner) adds sub-drivers who share their
- * tenant. Sharing the tenant_id is what puts them on the same job pool — the
- * existing tenant-scoped RLS does the rest.
+ * Team management: a driver (tenant owner) runs a team of sub-drivers who
+ * share their tenant. Sharing the tenant_id is what puts them on the same job
+ * pool — the existing tenant-scoped RLS does the rest.
  *
- * A sub-driver starts 'pending' and a super-admin approves them, exactly like
- * a self-registered driver. The owner vouches; the platform decides.
+ * Members arrive through an invitation link (src/lib/actions/join.ts) and land
+ * 'pending'. THE OWNER accepts or refuses: they are the one who knows whether
+ * this person really rides for them. A super-admin keeps the platform-level
+ * levers (setMemberStatus, below) but is no longer in the hiring loop.
  */
 
-/**
- * How a sync ended. A code rather than a sentence: a server action has no
- * locale, so returning French text from here would pin the UI to French no
- * matter what the reader asked for. The client owns the wording.
- */
-export type SyncCode =
-  | "created"
-  | "linked"
-  | "already-synced"
-  | "member-not-found"
-  | "forbidden"
-  | "phone-missing"
-  /** This email/phone already belongs to a Fleetbase user in ANOTHER company —
-   *  they are unique instance-wide, so the driver cannot be created as-is. */
-  | "email-taken"
-  | "phone-taken"
-  | "no-fleetbase-key"
-  | "email-not-found"
-  | "fleetbase-error"
-  | "failed";
-
-export type SyncResult = {
-  ok: boolean;
-  code: SyncCode;
-  /**
-   * Upstream diagnostics, present only for "fleetbase-error". Not translated
-   * on purpose: it is another system's error text, shown verbatim so a failed
-   * sync can actually be debugged.
-   */
-  detail?: { status: number; message: string };
-} | null;
-
-/**
- * Add a sub-driver to the caller's team. Creates the login directly with an
- * owner-chosen password (no invite email); the sub-driver signs in at /login
- * and waits on /pending until approved.
- */
-export async function addSubDriver(formData: FormData) {
-  const owner = await requireOwner();
-
-  const name = String(formData.get("name") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  // Stored as the 8 local digits, like every other number we keep; the E.164
-  // form is derived at the Fleetbase call (toInternationalPhone, below).
-  const phone = normalizePhone(String(formData.get("phone") ?? ""));
-  const password = String(formData.get("password") ?? "");
-
-  if (!name || !email || password.length < 8) {
-    redirect("/dashboard/team?error=missing");
-  }
-  if (!isValidPhone(phone)) {
-    redirect("/dashboard/team?error=phone");
-  }
-
-  const supabase = createAdminClient();
-
-  const { data: created, error: uErr } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  });
-  if (uErr || !created?.user) {
-    redirect("/dashboard/team?error=email");
-  }
-
-  const { error: pErr } = await supabase.from("profiles").insert({
-    id: created.user.id,
-    tenant_id: owner.tenantId,
-    role: "tenant_admin",
-    name,
-    phone,
-    parent_profile_id: owner.id,
-    status: "pending",
-  });
-  if (pErr) {
-    // Roll back the orphaned login so a retry with the same email is clean.
-    await supabase.auth.admin.deleteUser(created.user.id);
-    redirect("/dashboard/team?error=insert");
-  }
-
-  // NOTE: deliberately no signInWithPassword here. signupDriver ends by signing
-  // the new user in, but copying that would swap the owner's session for their
-  // sub-driver's — the owner must stay signed in as themselves.
-
-  revalidatePath("/dashboard/team");
-  redirect("/dashboard/team?added=1");
-}
-
-/**
- * Set the owner's own phone. Needed because owners predate profiles.phone and
- * Fleetbase requires a number to register them as a driver (decision: the boss
- * is in the pool too). Sub-drivers get their number at creation.
- */
+/** Set the owner's own phone. Owners predate profiles.phone; members give
+ *  theirs when they join. */
 export async function updateOwnPhone(formData: FormData) {
   const owner = await requireOwner();
   const phone = normalizePhone(String(formData.get("phone") ?? ""));
@@ -122,6 +30,15 @@ export async function updateOwnPhone(formData: FormData) {
   await supabase.from("profiles").update({ phone }).eq("id", owner.id);
 
   revalidatePath("/dashboard/team");
+}
+
+/** Burn the team's invitation link and mint a fresh one. What an owner reaches
+ *  for when the old link ended up somewhere it shouldn't have. */
+export async function regenerateInvite() {
+  const owner = await requireOwner();
+  await regenerateTeamInvite(owner.tenantId, owner.id);
+  revalidatePath("/dashboard/team");
+  redirect("/dashboard/team?done=invite");
 }
 
 /** Look up a team member, proving they really belong to this owner. */
@@ -140,6 +57,52 @@ async function ownedSubDriver(ownerId: string, tenantId: string, id: string) {
   return data;
 }
 
+/**
+ * Accept a join request. This is the moment the person becomes real to the
+ * system: status 'active' is what makes current_tenant_id() resolve for them,
+ * and so what opens the team's course feed.
+ */
+export async function approveTeamMember(formData: FormData) {
+  const owner = await requireOwner();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const target = await ownedSubDriver(owner.id, owner.tenantId, id);
+  if (!target) redirect("/dashboard/team?error=forbidden");
+  if (target.status !== "pending") redirect("/dashboard/team?error=notPending");
+
+  const supabase = createAdminClient();
+  await supabase.from("profiles").update({ status: "active" }).eq("id", id);
+
+  // Best effort — they can also just reload the dashboard they are sitting on.
+  const { data } = await supabase.auth.admin.getUserById(id);
+  if (data?.user?.email) await sendAccountReadyEmail(data.user.email, "approved");
+
+  revalidatePath("/dashboard/team");
+  redirect("/dashboard/team?done=approved");
+}
+
+/**
+ * Refuse a join request: delete the login, which cascades the profile away.
+ * Nothing is kept — the same person can re-apply with the same address, which
+ * is the right outcome for a mistaken refusal.
+ */
+export async function rejectTeamMember(formData: FormData) {
+  const owner = await requireOwner();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const target = await ownedSubDriver(owner.id, owner.tenantId, id);
+  if (!target) redirect("/dashboard/team?error=forbidden");
+  if (target.status !== "pending") redirect("/dashboard/team?error=notPending");
+
+  const supabase = createAdminClient();
+  await supabase.auth.admin.deleteUser(id);
+
+  revalidatePath("/dashboard/team");
+  redirect("/dashboard/team?done=rejected");
+}
+
 /** Suspend or re-activate one of the caller's sub-drivers. */
 export async function toggleSubDriverActive(formData: FormData) {
   const owner = await requireOwner();
@@ -149,9 +112,8 @@ export async function toggleSubDriverActive(formData: FormData) {
   const target = await ownedSubDriver(owner.id, owner.tenantId, id);
   if (!target) redirect("/dashboard/team?error=forbidden");
 
-  // An owner may pause/resume a member, but cannot approve one — only a
-  // super-admin can move them out of 'pending'.
-  if (target.status === "pending") redirect("/dashboard/team?error=pending");
+  // A pending member is accepted or refused, not paused.
+  if (target.status === "pending") redirect("/dashboard/team?error=notPending");
 
   const next = target.status === "active" ? "suspended" : "active";
   const supabase = createAdminClient();
@@ -172,144 +134,15 @@ export async function removeSubDriver(formData: FormData) {
   const supabase = createAdminClient();
   await supabase.auth.admin.deleteUser(id);
 
-  // Their Fleetbase driver record is left in place — removing it is a separate
-  // concern and must not block the removal here.
   revalidatePath("/dashboard/team");
 }
 
 /**
- * Register a team member (owner or sub-driver) as a driver in the tenant's
- * Fleetbase company, putting them in its adhoc broadcast pool.
+ * Approve a pending member from the admin console (super-admin only).
  *
- * Returns a result instead of throwing: this is called from approval and from
- * a retry button, and a Fleetbase outage must never break either.
+ * Kept alongside approveTeamMember, which is the normal path: this is the
+ * override for when an owner is unreachable or a request is stuck.
  */
-export async function syncDriverToFleetbase(profileId: string): Promise<SyncResult> {
-  const supabase = createAdminClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, tenant_id, name, phone, fleetbase_driver_id")
-    .eq("id", profileId)
-    .maybeSingle();
-  if (!profile) return { ok: false, code: "member-not-found" };
-
-  // A super-admin may sync anyone; an owner only their own team.
-  if (!(await canManageTeam(profile.tenant_id as string))) {
-    return { ok: false, code: "forbidden" };
-  }
-
-  if (profile.fleetbase_driver_id) {
-    return { ok: true, code: "already-synced" };
-  }
-  if (!profile.phone) {
-    return { ok: false, code: "phone-missing" };
-  }
-
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("slug, phone_country")
-    .eq("id", profile.tenant_id)
-    .maybeSingle();
-
-  // NO env-key fallback here, deliberately — unlike testTenantConnection, which
-  // may fall back because ping() only reads. Creating a driver is a WRITE: with
-  // the shared env key it would file this person into whatever company that key
-  // owns, i.e. another tenant's dispatch pool. A tenant with no key of its own
-  // must fail loudly instead.
-  const ctx = tenant?.slug
-    ? await getTenantFleetbaseContext(tenant.slug as string)
-    : null;
-  if (!ctx) {
-    return { ok: false, code: "no-fleetbase-key" };
-  }
-
-  // Fleetbase requires an email; a driver's login email is the natural one.
-  const { data: authUser } = await supabase.auth.admin.getUserById(profileId);
-  const email = authUser?.user?.email;
-  if (!email) return { ok: false, code: "email-not-found" };
-
-  const fleetbase = createFleetbaseClient(ctx);
-  const phone = toInternationalPhone(
-    profile.phone as string,
-    (tenant?.phone_country as string | null) ?? "TN",
-  );
-
-  // Fleetbase users are unique instance-wide. A person already registered
-  // under ANOTHER organization cannot be created here, so say which
-  // identifier is the problem instead of surfacing a bare 422 — but only
-  // after ruling out this tenant's own driver record, which a re-sync is
-  // meant to adopt rather than report as a conflict.
-  const adoptable = await fleetbase.findDriverByEmail(email);
-  if (!adoptable) {
-    const conflict = await checkIdentityConflict({ email, phone }, ctx.apiUrl);
-    if (conflict.email) return { ok: false, code: "email-taken" };
-    if (conflict.phone) return { ok: false, code: "phone-taken" };
-  }
-
-  try {
-    let driver: { id: string };
-    let code: SyncCode = "created";
-
-    if (adoptable) {
-      // Already known to this company — typically the owner, whose address was
-      // used for the company's admin user. Adopt the record instead of failing.
-      driver = adoptable;
-      code = "linked";
-    } else {
-      // The probe above is advisory (it only sees what the validator knows),
-      // so a 422 here is still possible — a soft-deleted user, say. Translate
-      // it rather than letting the raw upstream text reach the page.
-      //
-      // Fleetbase mails an "invited to join <company>" notification from
-      // User::assignCompany() on this call, with no way to opt out from the
-      // API. It is silenced on the instance itself: core-api's
-      // sendInviteFromCompany() is patched to bail out when
-      // storage/app/noinv exists. See docs/fleetbase-patches.md — if that
-      // patch is ever lost, these invitations come back.
-      try {
-        driver = await fleetbase.createDriver({
-          name: (profile.name as string | null) ?? email,
-          email,
-          phone,
-        });
-      } catch (err) {
-        if (!(err instanceof FleetbaseError) || err.status !== 422) throw err;
-        const taken = err.message.toLowerCase();
-        if (taken.includes("phone")) return { ok: false, code: "phone-taken" };
-        if (taken.includes("email")) return { ok: false, code: "email-taken" };
-        throw err;
-      }
-    }
-
-    await supabase
-      .from("profiles")
-      .update({ fleetbase_driver_id: driver.id })
-      .eq("id", profileId);
-
-    revalidatePath("/dashboard/team");
-    revalidatePath(`/admin/tenants/${profile.tenant_id}`);
-    return { ok: true, code };
-  } catch (err) {
-    return err instanceof FleetbaseError
-      ? {
-          ok: false,
-          code: "fleetbase-error",
-          detail: { status: err.status, message: err.message },
-        }
-      : { ok: false, code: "failed" };
-  }
-}
-
-/** True when the caller is a super-admin, or the approved owner of `tenantId`. */
-async function canManageTeam(tenantId: string): Promise<boolean> {
-  const profile = await getProfile();
-  if (!profile) return false;
-  if (profile.role === "super_admin") return true;
-  return profile.isOwner && profile.status === "active" && profile.tenantId === tenantId;
-}
-
-/** Approve a pending sub-driver (super-admin only), then try to put them in
- *  the tenant's Fleetbase pool. Approval stands even if that sync fails. */
 export async function approveSubDriver(formData: FormData) {
   await requireRole("super_admin");
   const id = String(formData.get("id") ?? "");
@@ -319,25 +152,8 @@ export async function approveSubDriver(formData: FormData) {
   const supabase = createAdminClient();
   await supabase.from("profiles").update({ status: "active" }).eq("id", id);
 
-  // Best effort: the retry button on the team list covers a failure here.
-  await syncDriverToFleetbase(id);
-
-  // Tell the driver their account is ready, with the tenant's Navigator
-  // connection link as the next step (best effort, see helper).
   const { data } = await supabase.auth.admin.getUserById(id);
-  if (data?.user?.email) {
-    // The profile's tenant_id, not the form's: the form value is display
-    // routing only and may be absent.
-    const { data: prof } = await supabase
-      .from("profiles")
-      .select("tenant_id")
-      .eq("id", id)
-      .maybeSingle();
-    const connectUrl = prof?.tenant_id
-      ? await navigatorConnectUrl(prof.tenant_id as string)
-      : null;
-    await sendAccountReadyEmail(data.user.email, "approved", connectUrl ?? undefined);
-  }
+  if (data?.user?.email) await sendAccountReadyEmail(data.user.email, "approved");
 
   revalidatePath("/dashboard/team");
   // Only ever submitted from the admin tenant page, which is where the

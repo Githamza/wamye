@@ -4,12 +4,12 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 
 /**
- * The two ways an owner actually sends the connect link to a driver:
- * copy it, or hand it straight to WhatsApp. Client component only because
- * of the clipboard; the WhatsApp button is a plain link.
+ * The two ways an owner actually sends a link: copy it, or hand it straight to
+ * WhatsApp. Client component only because of the clipboard; the WhatsApp
+ * button is a plain link.
  */
-export function NavigatorShareActions({ url }: { url: string }) {
-  const t = useTranslations("Dashboard.navigator");
+export function ShareActions({ url }: { url: string }) {
+  const t = useTranslations("Dashboard.invite");
   const [copied, setCopied] = useState(false);
 
   async function copy() {

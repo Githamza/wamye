@@ -50,11 +50,23 @@ export default async function DashboardLayout({
     .eq("id", profile.tenantId)
     .maybeSingle();
 
-  // Pending/suspended drivers can't use the dashboard until a super-admin
-  // approves them (and connects their Fleetbase).
+  // A business waits on a super-admin. Its team members wait on their owner —
+  // that gate is the status check above, not this one.
   if (tenant?.status !== "active") redirect("/pending");
 
   const nav = NAV.filter((n) => !n.ownerOnly || profile.isOwner);
+
+  // Join requests wait on the owner and nothing else surfaces them, so the tab
+  // carries the count. Owners only — the query is scoped to their own team.
+  let requestCount = 0;
+  if (profile.isOwner) {
+    const { count } = await supabase
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("parent_profile_id", profile.id)
+      .eq("status", "pending");
+    requestCount = count ?? 0;
+  }
 
   return (
     <div className="min-h-[100dvh] bg-app">
@@ -86,9 +98,14 @@ export default async function DashboardLayout({
           <Link
             key={n.href}
             href={n.href}
-            className="whitespace-nowrap px-3 py-2.5 text-[14px] font-medium text-stone-muted2 hover:text-brand"
+            className="flex items-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-[14px] font-medium text-stone-muted2 hover:text-brand"
           >
             {t(`nav.${n.key}`)}
+            {n.key === "team" && requestCount > 0 && (
+              <span className="flex size-[18px] items-center justify-center rounded-full bg-brand text-[11px] font-semibold text-white">
+                {requestCount}
+              </span>
+            )}
           </Link>
         ))}
       </nav>

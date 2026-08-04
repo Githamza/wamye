@@ -9,9 +9,12 @@ import { sendSignupReceivedEmail } from "@/lib/auth/approval-email";
 
 /**
  * Public self-registration for a driver (no auth required). Creates a PENDING
- * tenant + its tenant_admin login. A super-admin then approves the tenant and
- * connects its Fleetbase before the driver can use the dashboard — until then
- * the dashboard redirects them to /pending.
+ * tenant + its tenant_admin login. A super-admin then approves the tenant
+ * before the driver can use the dashboard — until then the dashboard
+ * redirects them to /pending.
+ *
+ * This is the path for someone starting their OWN business. A driver joining
+ * an existing team comes through /rejoindre instead (src/lib/actions/join.ts).
  *
  * NOTE: this is an unauthenticated write endpoint; add rate-limiting/captcha
  * before opening signup publicly (tracked as a prod-readiness follow-up).

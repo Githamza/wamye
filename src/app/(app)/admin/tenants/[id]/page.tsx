@@ -10,11 +10,8 @@ import {
 import { approveSubDriver, setMemberStatus } from "@/lib/actions/team";
 import { statusLabel } from "@/lib/labels";
 import { TestConnectionButton } from "@/components/test-connection-button";
-import { SyncDriverButton } from "@/components/sync-driver-button";
 import { ProvisionTenantButton } from "@/components/provision-tenant-button";
-import { checkIdentityConflict, isFleetbaseAdminConfigured } from "@/lib/fleetbase-admin";
-import { tenantOwnerEmail } from "@/lib/auth/approval-email";
-import { toInternationalPhone } from "@/lib/phone";
+import { isFleetbaseAdminConfigured } from "@/lib/fleetbase-admin";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +46,6 @@ type TeamRow = {
   phone: string | null;
   status: string;
   parent_profile_id: string | null;
-  fleetbase_driver_id: string | null;
 };
 
 export default async function TenantDetailPage(props: {
@@ -82,28 +78,16 @@ export default async function TenantDetailPage(props: {
   // The whole team: the owner (parent_profile_id null) plus their sub-drivers.
   const { data: teamRows } = await supabase
     .from("profiles")
-    .select("id, name, phone, status, parent_profile_id, fleetbase_driver_id, role")
+    .select("id, name, phone, status, parent_profile_id, role")
     .eq("tenant_id", id)
     .neq("role", "super_admin")
     .order("parent_profile_id", { nullsFirst: true })
     .order("created_at");
   const team = (teamRows ?? []) as TeamRow[];
 
-  // Fleetbase users are unique instance-wide, so an owner already registered
-  // under another organization cannot be filed as a driver here. Probed before
-  // the approval rather than discovered as a 422 after it — but only while
-  // there is something to decide: once synced, the address is "taken" by this
-  // tenant's own driver record, which is exactly as it should be.
-  const owner = team.find((m) => m.parent_profile_id === null);
-  const ownerEmail = owner ? await tenantOwnerEmail(id) : null;
-  const conflict =
-    owner && !owner.fleetbase_driver_id
-      ? await checkIdentityConflict({
-          email: ownerEmail,
-          phone: owner.phone ? toInternationalPhone(owner.phone, "TN") : null,
-        })
-      : null;
-  const hasConflict = Boolean(conflict?.email || conflict?.phone);
+  // The instance-wide identity probe that used to run here is gone with the
+  // driver records it protected: nothing files a person into Fleetbase any
+  // more, so there is no 422 left to pre-empt.
 
   return (
     <div className="flex flex-col gap-5">
@@ -147,28 +131,6 @@ export default async function TenantDetailPage(props: {
               ? "Connectez d'abord Fleetbase ci-dessous, puis validez ce compte pour lui donner accès à son tableau de bord et activer sa page publique."
               : "La validation crée l'organisation Fleetbase, génère sa clé API, ouvre son rayon de diffusion à la zone du compte et enregistre le livreur — puis active sa page publique."}
           </p>
-          {hasConflict && (
-            <div className="flex flex-col gap-1 rounded-[10px] border border-hair bg-danger-bg px-4 py-3 text-[13px] text-danger-ink">
-              <span className="font-semibold">
-                Déjà connu de Fleetbase — le livreur ne pourra pas être enregistré
-              </span>
-              {conflict?.email && (
-                <span>
-                  L&apos;e-mail {ownerEmail} appartient à un compte Fleetbase existant.
-                </span>
-              )}
-              {conflict?.phone && (
-                <span>Le numéro {owner?.phone} appartient à un compte Fleetbase existant.</span>
-              )}
-              <span className="text-stone-muted">
-                Les comptes Fleetbase sont uniques sur toute l&apos;instance, pas par
-                organisation. La validation ira jusqu&apos;au bout et créera l&apos;organisation,
-                mais l&apos;enregistrement du livreur échouera : libérez l&apos;ancien compte dans
-                la console, ou changez l&apos;e-mail / le numéro de ce compte.
-              </span>
-            </div>
-          )}
-
           <form action={approveTenant}>
             <input type="hidden" name="id" value={t.id} />
             <button
@@ -182,13 +144,14 @@ export default async function TenantDetailPage(props: {
         </div>
       )}
 
-      {/* TEAM — the owner plus any sub-drivers they added. Sub-drivers need
-          approval here before they can work, exactly like a self-signup. */}
+      {/* TEAM — the owner plus the drivers who joined through their invitation
+          link. Accepting a request is the owner's job now; the button here is
+          the override for when they are unreachable. */}
       <div className="flex flex-col gap-3 rounded-[14px] border border-hair bg-white p-5">
         <div className="text-[14px] font-semibold text-stone-ink">Équipe</div>
         <p className="text-[13px] text-stone-muted">
-          Un livreur synchronisé ne reçoit des courses que s&apos;il est en ligne dans
-          l&apos;application Fleetbase Navigator (elle partage sa position).
+          Les livreurs rejoignent cette équipe par le lien d&apos;invitation du
+          responsable, qui valide lui-même les demandes.
         </p>
 
         {team.length === 0 && (
@@ -220,10 +183,6 @@ export default async function TenantDetailPage(props: {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <SyncDriverButton
-                  profileId={m.id}
-                  synced={Boolean(m.fleetbase_driver_id)}
-                />
                 {m.status === "pending" && (
                   <form action={approveSubDriver}>
                     <input type="hidden" name="id" value={m.id} />

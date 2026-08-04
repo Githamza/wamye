@@ -35,51 +35,21 @@ const COPY: Record<
 // Every Brevo send must carry a text/plain part alongside the HTML: with only
 // a text/html MIME part, spam filters score MIME_HTML_ONLY and — because the
 // open-tracking pixel counts as an image — HTML_IMAGE_ONLY on top.
-function renderText(
-  kind: AccountReadyKind,
-  actionLink: string,
-  navigatorConnectUrl?: string,
-): string {
+function renderText(kind: AccountReadyKind, actionLink: string): string {
   const { headline, body, cta, footer } = COPY[kind];
-  const navigatorBlock = navigatorConnectUrl
-    ? `
-
-Étape suivante : l'application Navigator
-Ouvrez ce lien sur votre téléphone et laissez-vous guider — c'est dans Navigator que vous recevrez vos courses :
-${navigatorConnectUrl}`
-    : "";
   return `${headline}
 
 ${body}
 
 ${cta} : ${actionLink}
 
-${footer}${navigatorBlock}
+${footer}
 
 Vous recevez cet email car un compte Wamye est associé à cette adresse.`;
 }
 
-function renderHtml(
-  kind: AccountReadyKind,
-  actionLink: string,
-  navigatorConnectUrl?: string,
-): string {
+function renderHtml(kind: AccountReadyKind, actionLink: string): string {
   const { headline, body, cta, footer } = COPY[kind];
-  // No install instructions here on purpose: the connect page behind the
-  // link walks the driver through install-then-connect itself.
-  const navigatorBlock = navigatorConnectUrl
-    ? `
-      <hr style="margin:28px 0;border:none;border-top:1px solid #99F6E4">
-      <h2 style="margin:0 0 8px;font-size:16px;color:#134E4A">Étape suivante : l'application Navigator</h2>
-      <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#333">
-        Ouvrez ce lien <strong>sur votre téléphone</strong> et laissez-vous guider :
-        c'est dans Navigator que vous recevrez vos courses.
-      </p>
-      <a href="${navigatorConnectUrl}"
-         style="display:inline-block;background:#ffffff;color:#0F766E;border:1px solid #0F766E;text-decoration:none;font-weight:600;font-size:14px;padding:11px 20px;border-radius:10px">
-        Connecter Navigator
-      </a>`
-    : "";
   return `<!doctype html>
 <html lang="fr">
   <body style="margin:0;padding:24px;background:#F0FDFA;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif">
@@ -93,7 +63,7 @@ function renderHtml(
       </a>
       <p style="margin:24px 0 0;font-size:13px;line-height:1.5;color:#777">
         ${footer}
-      </p>${navigatorBlock}
+      </p>
       <p style="margin:24px 0 0;font-size:12px;line-height:1.5;color:#999">
         Vous recevez cet email car un compte Wamye est associé à cette adresse.
       </p>
@@ -121,10 +91,6 @@ function renderHtml(
 export async function sendAccountReadyEmail(
   email: string,
   kind: AccountReadyKind = "approved",
-  /** Tenant's /connect/<token> URL; when present the mail adds a
-   *  "next step: connect Navigator" section. Optional — the account mail
-   *  must go out even when the token can't be resolved. */
-  navigatorConnectUrl?: string,
 ): Promise<void> {
   try {
     const apiKey = process.env.BREVO_API_KEY;
@@ -170,8 +136,8 @@ export async function sendAccountReadyEmail(
         },
         to: [{ email }],
         subject: COPY[kind].subject,
-        htmlContent: renderHtml(kind, actionLink, navigatorConnectUrl),
-        textContent: renderText(kind, actionLink, navigatorConnectUrl),
+        htmlContent: renderHtml(kind, actionLink),
+        textContent: renderText(kind, actionLink),
       }),
     });
     if (!res.ok) {
@@ -265,6 +231,90 @@ Vous recevez cet email car une inscription Wamye a été effectuée avec cette a
     }
   } catch (err) {
     console.error(`[signup-received] email to ${email} failed:`, err);
+  }
+}
+
+/**
+ * Best-effort "someone wants to join your team" nudge to the owner.
+ *
+ * No Supabase fallback and no link beyond the team page: the request is
+ * already sitting there, this mail only shortens the wait. Never throws — the
+ * join must succeed even when the mail does not.
+ */
+export async function sendJoinRequestEmail(
+  ownerEmail: string,
+  candidate: { name: string; phone: string },
+): Promise<void> {
+  try {
+    const apiKey = process.env.BREVO_API_KEY;
+    if (!apiKey) {
+      console.error("[join-request] BREVO_API_KEY missing — mail skipped");
+      return;
+    }
+
+    const teamUrl = `${await siteOrigin()}/dashboard/team`;
+    const who = `${candidate.name} (+216 ${candidate.phone})`;
+
+    const html = `<!doctype html>
+<html lang="fr">
+  <body style="margin:0;padding:24px;background:#F0FDFA;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif">
+    <div style="max-width:440px;margin:0 auto;background:#ffffff;border:1px solid #99F6E4;border-radius:12px;padding:32px 28px">
+      <div style="font-size:28px">🛵</div>
+      <h1 style="margin:12px 0 8px;font-size:20px;color:#134E4A">Une demande pour rejoindre votre équipe</h1>
+      <p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#333">
+        <strong>${who}</strong> a utilisé votre lien d'invitation et attend votre réponse.
+      </p>
+      <p style="margin:0 0 20px;font-size:15px;line-height:1.5;color:#333">
+        Tant que vous n'avez pas accepté, cette personne ne voit aucune de vos courses.
+      </p>
+      <a href="${teamUrl}"
+         style="display:inline-block;background:#0F766E;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:10px">
+        Voir la demande
+      </a>
+      <p style="margin:24px 0 0;font-size:12px;line-height:1.5;color:#999">
+        Vous recevez cet email car vous gérez une équipe de livreurs sur Wamye.
+      </p>
+    </div>
+  </body>
+</html>`;
+
+    const text = `Une demande pour rejoindre votre équipe
+
+${who} a utilisé votre lien d'invitation et attend votre réponse.
+
+Tant que vous n'avez pas accepté, cette personne ne voit aucune de vos courses.
+
+Voir la demande : ${teamUrl}
+
+Vous recevez cet email car vous gérez une équipe de livreurs sur Wamye.`;
+
+    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "api-key": apiKey,
+        "content-type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        sender: {
+          name: "Wamye",
+          email: process.env.BREVO_SENDER_EMAIL ?? "hamza.haddad.dev@gmail.com",
+        },
+        to: [{ email: ownerEmail }],
+        subject: `${candidate.name} veut rejoindre votre équipe`,
+        htmlContent: html,
+        textContent: text,
+      }),
+    });
+    if (!res.ok) {
+      console.error(
+        `[join-request] Brevo send to ${ownerEmail} failed:`,
+        res.status,
+        await res.text(),
+      );
+    }
+  } catch (err) {
+    console.error(`[join-request] email to ${ownerEmail} failed:`, err);
   }
 }
 

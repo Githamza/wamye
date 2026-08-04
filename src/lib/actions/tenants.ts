@@ -7,7 +7,6 @@ import {
   sendAccountReadyEmail,
   tenantOwnerEmail,
 } from "@/lib/auth/approval-email";
-import { syncDriverToFleetbase } from "@/lib/actions/team";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { encryptSecret } from "@/lib/crypto";
 import { slugify } from "@/lib/slug";
@@ -16,7 +15,6 @@ import {
   getTenantFleetbaseContext,
   syncCompanyAdhocDistance,
 } from "@/lib/tenant";
-import { navigatorConnectUrl } from "@/lib/navigator-link";
 import {
   createFleetbaseClient,
   envFleetbaseContext,
@@ -127,10 +125,8 @@ export async function createTenant(formData: FormData) {
       role: "tenant_admin",
       name,
     });
-    // The login has no password yet; the mail's link lets them set one. The
-    // Navigator link rides along — the admin is in practice the first driver.
-    const connectUrl = await navigatorConnectUrl(tenant.id as string);
-    await sendAccountReadyEmail(adminEmail, "created", connectUrl ?? undefined);
+    // The login has no password yet; the mail's link lets them set one.
+    await sendAccountReadyEmail(adminEmail, "created");
   }
 
   revalidatePath("/admin");
@@ -257,25 +253,10 @@ export async function provisionTenant(
 ): Promise<ProvisionResult> {
   await requireRole("super_admin");
   const result = await provisionTenantFleetbase(tenantId);
-  if (result?.ok) {
-    revalidatePath(`/admin/tenants/${tenantId}`);
-    // The owner could not be filed as a driver while the company had no key.
-    const owner = await tenantOwnerProfileId(tenantId);
-    if (owner) await syncDriverToFleetbase(owner);
-  }
+  // Nothing follows a successful provision any more: drivers used to be filed
+  // into the freshly-created company here, and there is no such filing left.
+  if (result?.ok) revalidatePath(`/admin/tenants/${tenantId}`);
   return result;
-}
-
-/** The tenant's owner profile — the self-registered driver, not a sub-driver. */
-async function tenantOwnerProfileId(tenantId: string): Promise<string | null> {
-  const supabase = createAdminClient();
-  const { data } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("tenant_id", tenantId)
-    .is("parent_profile_id", null)
-    .maybeSingle();
-  return (data?.id as string | undefined) ?? null;
 }
 
 /** Approve a pending self-registered tenant (super-admin only). */
@@ -358,8 +339,8 @@ export async function updateTenantFleetbase(formData: FormData) {
   redirect(`/admin/tenants/${id}?done=fleetbase`);
 }
 
-/** How a connection test ended. A code, not a sentence — see SyncCode in
- *  @/lib/actions/team for why the server does not word these. */
+/** How a connection test ended. A code rather than a sentence: a server action
+ *  has no locale, so the client owns the wording. */
 export type TestCode = "connected" | "no-key" | "fleetbase-error" | "failed";
 
 export type TestResult = {
