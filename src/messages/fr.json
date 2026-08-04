@@ -352,15 +352,24 @@
         "open": "Voir les étapes en images",
         "title": "Installer Wamye Pro",
         "close": "Fermer",
+        "platform": "Type de téléphone",
+        "tabIos": "iPhone",
+        "tabAndroid": "Android",
         "counter": "Étape {step} sur {total}",
         "prev": "Précédent",
         "next": "Suivant",
         "done": "Terminé",
-        "step1": "Dans Safari, appuie sur les trois points « … », en bas à droite de la barre d’adresse.",
-        "step2": "Dans le menu qui s’ouvre, choisis « Share ».",
-        "step3": "Appuie sur la flèche « View More » pour dérouler le reste des options.",
-        "step4": "Descends dans la liste et choisis « Add to Home Screen ».",
-        "step5": "Appuie sur « Add », en haut à droite. L’icône Wamye Pro apparaît sur ton écran d’accueil — ouvre l’app depuis elle."
+        "ios": {
+          "step1": "Dans Safari, appuie sur les trois points « … », en bas à droite de la barre d’adresse.",
+          "step2": "Dans le menu qui s’ouvre, choisis « Share ».",
+          "step3": "Appuie sur la flèche « View More » pour dérouler le reste des options.",
+          "step4": "Descends dans la liste et choisis « Add to Home Screen ».",
+          "step5": "Appuie sur « Add », en haut à droite. L’icône Wamye Pro apparaît sur ton écran d’accueil — ouvre l’app depuis elle."
+        },
+        "android": {
+          "step1": "Ouvre le menu de Chrome : les trois points, en haut à droite de l’écran.",
+          "step2": "Descends et choisis « Add to Home screen » — « Ajouter à l’écran d’accueil » si ton téléphone est en français — puis confirme. L’icône Wamye apparaît sur ton écran d’accueil : ouvre l’app depuis elle."
+        }
       }
     },
     "invite": {

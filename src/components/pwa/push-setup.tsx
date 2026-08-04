@@ -236,19 +236,22 @@ export function PushSetup() {
             <li>{t("step3OpenFromIcon")}</li>
           </ol>
 
-          {/* iOS only: the five screenshots are Safari's own menus, and showing
-              an iPhone walkthrough to an Android driver would send them looking
-              for a Share sheet their browser does not have. */}
-          {isIOS && (
-            <button
-              type="button"
-              onClick={() => setTutorial(true)}
-              className="flex h-11 items-center justify-center rounded-[10px] border border-danger-border bg-white text-[14px] font-semibold text-danger-ink"
-            >
-              {t("tutorial.open")}
-            </button>
+          <button
+            type="button"
+            onClick={() => setTutorial(true)}
+            className="flex h-11 items-center justify-center rounded-[10px] border border-danger-border bg-white text-[14px] font-semibold text-danger-ink"
+          >
+            {t("tutorial.open")}
+          </button>
+          {tutorial && (
+            // The same UA sniff that picked the text steps picks the tab, so
+            // the walkthrough opens on the phone in the driver's hand. They can
+            // still switch — the guess is a starting point, not a verdict.
+            <InstallTutorial
+              initialPlatform={isIOS ? "ios" : "android"}
+              onClose={() => setTutorial(false)}
+            />
           )}
-          {tutorial && <InstallTutorial onClose={() => setTutorial(false)} />}
         </>
       ) : (
         <button

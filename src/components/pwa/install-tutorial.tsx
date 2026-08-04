@@ -4,33 +4,62 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { X } from "lucide-react";
 
+type Platform = "ios" | "android";
+
 /**
- * The five screenshots of "Add to Home Screen", in order.
+ * The walkthrough for each phone, as screenshots of the browser's own menus.
  *
- * The file names are NOT the step order: the numbering painted on the phone
+ * iOS file names are NOT the step order: the numbering painted on the
  * screenshots is what a driver follows, and it runs 1 → 5 → 4 → 3 → 2 through
  * the files. Listed explicitly so nobody "fixes" it back into file order.
  *
- * WebP at 620px rather than the original 1320px PNGs: the whole tutorial is
- * 185 KB instead of 3.5 MB, which matters — this loads on a phone, on mobile
- * data, for a driver who is not yet installed and not yet reachable.
+ * `src: null` is a step we have no screenshot for — on Android the first tap
+ * happens before anything worth photographing. The caption stands alone rather
+ * than being illustrated by the wrong picture.
+ *
+ * WebP, sized for this exact slot: the whole thing is ~215 KB instead of the
+ * 3.5 MB the originals weighed. It loads on a phone, on mobile data, for a
+ * driver who is not yet installed and therefore not yet reachable.
  */
-const SHOTS = [
-  "/tuto-add-screen/photo-tuto1.webp",
-  "/tuto-add-screen/photo-tuto5.webp",
-  "/tuto-add-screen/photo-tuto4.webp",
-  "/tuto-add-screen/photo-tuto3.webp",
-  "/tuto-add-screen/photo-tuto2.webp",
-] as const;
+const TUTORIALS: Record<
+  Platform,
+  { width: number; height: number; shots: (string | null)[] }
+> = {
+  ios: {
+    width: 620,
+    height: 1347,
+    shots: [
+      "/tuto-add-screen/photo-tuto1.webp",
+      "/tuto-add-screen/photo-tuto5.webp",
+      "/tuto-add-screen/photo-tuto4.webp",
+      "/tuto-add-screen/photo-tuto3.webp",
+      "/tuto-add-screen/photo-tuto2.webp",
+    ],
+  },
+  android: {
+    width: 395,
+    height: 776,
+    shots: [null, "/tuto-add-screen/photo-tuto-android1.webp"],
+  },
+};
 
-/** Every shot is the same phone, so one ratio covers the frame. */
-const SHOT_RATIO = "1320 / 2868";
-
-export function InstallTutorial({ onClose }: { onClose: () => void }) {
+export function InstallTutorial({
+  initialPlatform,
+  onClose,
+}: {
+  initialPlatform: Platform;
+  onClose: () => void;
+}) {
   const t = useTranslations("Dashboard.push.tutorial");
+  // Opens on the phone the driver is holding; the tab is there for when we
+  // guessed wrong, and for a driver helping a colleague on the other phone.
+  const [platform, setPlatform] = useState<Platform>(initialPlatform);
   const [step, setStep] = useState(0);
 
-  const last = step === SHOTS.length - 1;
+  const { shots, width, height } = TUTORIALS[platform];
+  const shot = shots[step];
+  const last = step === shots.length - 1;
+  const caption = t(`${platform}.step${step + 1}` as "ios.step1");
 
   // The dashboard keeps scrolling behind a fixed overlay otherwise — on iOS
   // that reads as the modal itself being broken.
@@ -51,6 +80,13 @@ export function InstallTutorial({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  function choose(next: Platform) {
+    setPlatform(next);
+    // The two walkthroughs have different lengths and nothing in common, so
+    // staying on step 4 of the other one would land anywhere or nowhere.
+    setStep(0);
+  }
+
   return (
     <div
       role="dialog"
@@ -65,7 +101,7 @@ export function InstallTutorial({ onClose }: { onClose: () => void }) {
               {t("title")}
             </div>
             <div className="text-[12px] text-stone-muted">
-              {t("counter", { step: step + 1, total: SHOTS.length })}
+              {t("counter", { step: step + 1, total: shots.length })}
             </div>
           </div>
           <button
@@ -78,41 +114,67 @@ export function InstallTutorial({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
+        {/* Which phone, before anything else: a driver reading Chrome's menu on
+            an iPhone walkthrough gives up rather than switching tab. */}
+        <div
+          role="tablist"
+          aria-label={t("platform")}
+          className="flex flex-none gap-1 border-b border-hair bg-hair-2 p-1"
+        >
+          {(["ios", "android"] as const).map((p) => (
+            <button
+              key={p}
+              type="button"
+              role="tab"
+              aria-selected={platform === p}
+              onClick={() => choose(p)}
+              className={`h-9 flex-1 rounded-[8px] text-[13px] font-medium transition-colors ${
+                platform === p
+                  ? "bg-white text-stone-ink shadow-[0_1px_2px_rgba(28,25,23,0.12)]"
+                  : "text-stone-muted"
+              }`}
+            >
+              {/* Not t(p): "android" is also the key of the step group. */}
+              {t(p === "ios" ? "tabIos" : "tabAndroid")}
+            </button>
+          ))}
+        </div>
+
         {/* The caption sits above the screenshot: it is the instruction, and the
             screenshot is only there to point at where. */}
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
-          <p className="text-[14px] leading-relaxed text-stone-ink">
-            {t(`step${step + 1}` as "step1")}
-          </p>
+          <p className="text-[14px] leading-relaxed text-stone-ink">{caption}</p>
 
           {/* Advancing by tapping the image is how a phone user expects this to
               work; the buttons below stay for anyone who does not try it. */}
-          <button
-            type="button"
-            onClick={() => (last ? onClose() : setStep(step + 1))}
-            className="mx-auto block w-full max-w-[240px] overflow-hidden rounded-[14px] border border-hair bg-hair-2"
-            style={{ aspectRatio: SHOT_RATIO }}
-          >
-            {/* Plain <img>: these are already sized and encoded for this exact
-                slot, so next/image would optimize an optimized file — and add a
-                runtime sharp dependency the standalone image does not need. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={SHOTS[step]}
-              alt={t(`step${step + 1}` as "step1")}
-              width={620}
-              height={1347}
-              // Only the first is above the fold of the modal; the rest arrive
-              // as the driver walks through.
-              loading={step === 0 ? "eager" : "lazy"}
-              className="size-full object-cover object-top"
-            />
-          </button>
+          {shot && (
+            <button
+              type="button"
+              onClick={() => (last ? onClose() : setStep(step + 1))}
+              className="mx-auto block w-full max-w-[240px] overflow-hidden rounded-[14px] border border-hair bg-hair-2"
+              style={{ aspectRatio: `${width} / ${height}` }}
+            >
+              {/* Plain <img>: these are already sized and encoded for this exact
+                  slot, so next/image would optimize an optimized file — and add
+                  a runtime sharp dependency the standalone image does not need. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={shot}
+                alt={caption}
+                width={width}
+                height={height}
+                // Only the first is above the fold of the modal; the rest arrive
+                // as the driver walks through.
+                loading={step === 0 ? "eager" : "lazy"}
+                className="size-full object-cover object-top"
+              />
+            </button>
+          )}
 
           <div className="flex flex-none items-center justify-center gap-1.5">
-            {SHOTS.map((shot, i) => (
+            {shots.map((_, i) => (
               <span
-                key={shot}
+                key={i}
                 className={`size-1.5 rounded-full transition-colors ${
                   i === step ? "bg-brand" : "bg-hair"
                 }`}
