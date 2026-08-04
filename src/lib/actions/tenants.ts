@@ -143,6 +143,53 @@ export async function updateTenantArea(formData: FormData) {
   redirect(`/admin/tenants/${id}?done=area`);
 }
 
+/**
+ * Set a tenant's delivery pricing.
+ *
+ * Super-admin only, for the same reason as the quartier and one sharper one:
+ * this is what Wamye charges the customer in a quartier, and an owner free to
+ * raise it undercuts every other tenant's page and Wamye's own commission along
+ * with it. It also decides what the driver is paid, so it is a term of the
+ * arrangement, not a preference. The owner sees it, read-only, in Réglages.
+ *
+ * fee_config is its own column, so unlike updateTenantArea there is nothing to
+ * merge — the write replaces the whole model, which is what a pricing change is.
+ */
+export async function updateTenantFees(formData: FormData) {
+  await requireRole("super_admin");
+  const id = String(formData.get("id") ?? "");
+  if (!id) redirect("/admin");
+
+  const supabase = createAdminClient();
+  const { data: t } = await supabase
+    .from("tenants")
+    .select("slug")
+    .eq("id", id)
+    .maybeSingle();
+  if (!t) redirect("/admin");
+
+  // Clamped at zero: a negative fee would pay the customer, and `num` happily
+  // parses "-3". The floor is the only invariant the math needs — baseFee 0 with
+  // a per-km rate is a legitimate model, as is a flat minFee with neither.
+  const feeConfig = {
+    baseFee: Math.max(0, num(formData.get("baseFee"), 0)),
+    feePerKm: Math.max(0, num(formData.get("feePerKm"), 0)),
+    minFee: Math.max(0, num(formData.get("minFee"), 0)),
+  };
+
+  const { error } = await supabase
+    .from("tenants")
+    .update({ fee_config: feeConfig })
+    .eq("id", id);
+  if (error) redirect(`/admin/tenants/${id}?error=save`);
+
+  // The ordering page quotes from this, and so does the owner's Réglages.
+  revalidatePath(`/admin/tenants/${id}`);
+  revalidatePath(`/t/${t.slug}`);
+  revalidatePath("/dashboard/settings");
+  redirect(`/admin/tenants/${id}?done=fees`);
+}
+
 export async function toggleTenantActive(formData: FormData) {
   await requireRole("super_admin");
   const id = String(formData.get("id") ?? "");

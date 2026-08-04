@@ -12,7 +12,8 @@ function num(v: FormDataEntryValue | null): number | null {
 }
 
 /**
- * Update branding / zone / fee / hours for the caller's tenant.
+ * Update branding / zone / hours for the caller's tenant. NOT the fee — see the
+ * note above the write.
  *
  * requireOwner, not requireTenant: this writes with the service-role client, so
  * RLS is not a second line of defence — this guard is the only one. A sub-driver
@@ -49,20 +50,20 @@ export async function updateGeneral(formData: FormData) {
     centerLng: num(formData.get("centerLng")) ?? 0,
     radiusKm: num(formData.get("radiusKm")) ?? 10,
   };
-  const feeConfig = {
-    baseFee: num(formData.get("baseFee")) ?? 0,
-    feePerKm: num(formData.get("feePerKm")) ?? 0,
-    minFee: num(formData.get("minFee")) ?? 0,
-  };
   const hours = {
     openHour: num(formData.get("openHour")) ?? 0,
     closeHour: num(formData.get("closeHour")) ?? 24,
     alwaysOpen: formData.get("alwaysOpen") === "on",
   };
 
+  // fee_config is absent on purpose, and its absence is the whole guard: the
+  // tarif is Wamye's (see updateTenantFees), so this action must not be able to
+  // write it even if a forged POST carries baseFee/feePerKm/minFee. Unlike
+  // areaLabel there is nothing to read back and write through — fee_config is
+  // its own column, so leaving it out of the payload leaves it untouched.
   const { error } = await supabase
     .from("tenants")
-    .update({ branding, zone, fee_config: feeConfig, hours, name: branding.name })
+    .update({ branding, zone, hours, name: branding.name })
     .eq("id", profile.tenantId);
   if (error) redirect("/dashboard/settings?error=save");
 

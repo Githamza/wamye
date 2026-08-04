@@ -6,7 +6,11 @@ import {
   approveTenant,
   toggleTenantActive,
   updateTenantArea,
+  updateTenantFees,
 } from "@/lib/actions/tenants";
+import { feeForKm } from "@/lib/fees";
+import { formatDinar, formatKm } from "@/lib/format";
+import type { FeeConfig } from "@/lib/config-types";
 import { approveSubDriver, setMemberStatus } from "@/lib/actions/team";
 import { statusLabel } from "@/lib/labels";
 
@@ -27,6 +31,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 // The codes the actions can put in ?done=; anything else falls back.
 const DONE_MESSAGE: Record<string, string> = {
   area: "Quartier enregistré.",
+  fees: "Tarif enregistré — la page client le facture déjà.",
   approved: "Compte validé — le tableau de bord et la page publique sont ouverts.",
   activated: "Compte réactivé.",
   suspended: "Compte suspendu.",
@@ -55,10 +60,12 @@ export default async function TenantDetailPage(props: {
   const supabase = createAdminClient();
   const { data: t } = await supabase
     .from("tenants")
-    .select("id, slug, name, status, is_active, branding")
+    .select("id, slug, name, status, is_active, branding, fee_config")
     .eq("id", id)
     .maybeSingle();
   if (!t) notFound();
+
+  const fee = (t.fee_config ?? { baseFee: 0, feePerKm: 0, minFee: 0 }) as FeeConfig;
 
   // The whole team: the owner (parent_profile_id null) plus their sub-drivers.
   const { data: teamRows } = await supabase
@@ -214,6 +221,81 @@ export default async function TenantDetailPage(props: {
             className={input}
           />
         </Field>
+        <button
+          type="submit"
+          className="h-11 self-start rounded-[10px] bg-brand px-5 text-[14px] font-semibold text-white hover:bg-brand-hover"
+        >
+          Enregistrer
+        </button>
+      </form>
+
+      {/* TARIF — Wamye's, not the owner's. It is the price the customer pays
+          in this quartier and the amount the driver is paid for the course, so
+          it is a term of the arrangement rather than a setting. Réglages shows
+          it to the owner read-only. */}
+      <form
+        action={updateTenantFees}
+        className="flex flex-col gap-4 rounded-[14px] border border-hair bg-white p-5"
+      >
+        <div className="text-[14px] font-semibold text-stone-ink">
+          Tarif de livraison
+        </div>
+        <p className="text-[13px] text-stone-muted">
+          Le prix facturé au client sur la page de ce quartier. Le livreur le
+          voit dans ses Réglages mais ne peut pas le modifier.
+        </p>
+        <input type="hidden" name="id" value={t.id} />
+
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Frais de base (DT)">
+            <input
+              name="baseFee"
+              type="number"
+              step="any"
+              min="0"
+              defaultValue={fee.baseFee}
+              className={input}
+            />
+          </Field>
+          <Field label="Frais / km (DT)">
+            <input
+              name="feePerKm"
+              type="number"
+              step="any"
+              min="0"
+              defaultValue={fee.feePerKm}
+              className={input}
+            />
+          </Field>
+          <Field label="Frais min (DT)">
+            <input
+              name="minFee"
+              type="number"
+              step="any"
+              min="0"
+              defaultValue={fee.minFee}
+              className={input}
+            />
+          </Field>
+        </div>
+
+        {/* What the three numbers actually produce. A per-km rate is hard to
+            price in the abstract, and the minimum silently swallows the short
+            courses — the table is where you see that happen. Reflects the
+            SAVED values, so it lags the inputs until Enregistrer. */}
+        <div className="flex flex-col gap-1 rounded-[10px] bg-hair-2 p-3">
+          <div className="text-[12px] font-medium text-stone-muted2">
+            Ce que paie le client aujourd&apos;hui
+          </div>
+          <div className="flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-stone-ink">
+            {[0, 2, 5, 10].map((km) => (
+              <span key={km}>
+                {formatKm(km)} — <strong>{formatDinar(feeForKm(km, fee))}</strong>
+              </span>
+            ))}
+          </div>
+        </div>
+
         <button
           type="submit"
           className="h-11 self-start rounded-[10px] bg-brand px-5 text-[14px] font-semibold text-white hover:bg-brand-hover"

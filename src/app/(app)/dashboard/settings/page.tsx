@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { updateGeneral } from "@/lib/actions/tenant-settings";
 import { ZoneMapEditor } from "@/components/zone-map-editor";
 import { PhoneField } from "@/components/phone-field";
+import { formatDinar } from "@/lib/format";
 import type { Branding, FeeConfig, Hours, Zone } from "@/lib/config-types";
 
 export const dynamic = "force-dynamic";
@@ -94,16 +95,24 @@ export default async function SettingsPage(props: {
           initialRadiusKm={zone.radiusKm}
         />
 
-        <div className="grid grid-cols-3 gap-3">
-          <Field label={tr("baseFee")}>
-            <input name="baseFee" type="number" step="any" defaultValue={fee.baseFee} className={input} />
-          </Field>
-          <Field label={tr("feePerKm")}>
-            <input name="feePerKm" type="number" step="any" defaultValue={fee.feePerKm} className={input} />
-          </Field>
-          <Field label={tr("minFee")}>
-            <input name="minFee" type="number" step="any" defaultValue={fee.minFee} className={input} />
-          </Field>
+        {/* Read-only: the tarif is set by Wamye (see updateTenantFees). Shown
+            rather than hidden — a driver is asked what a delivery costs several
+            times a day, and the answer has to be somewhere they can reach. */}
+        <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              [tr("baseFee"), fee.baseFee],
+              [tr("feePerKm"), fee.feePerKm],
+              [tr("minFee"), fee.minFee],
+            ].map(([label, value]) => (
+              <Field key={String(label)} label={String(label)}>
+                <div className={`${input} flex items-center bg-hair-2 text-stone-muted2`}>
+                  {formatDinar(Number(value), profile.locale)}
+                </div>
+              </Field>
+            ))}
+          </div>
+          <p className="text-[12px] text-stone-muted">{tr("feeByWamye")}</p>
         </div>
 
         <div className="grid grid-cols-3 items-end gap-3">
