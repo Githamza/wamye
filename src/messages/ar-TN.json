@@ -209,7 +209,11 @@
     "clients": {
       "title": "الحرفاء",
       "empty": "ما فماش حرفاء توّا. يظهرو من أوّل طلب.",
-      "fallbackName": "حريف"
+      "fallbackName": "حريف",
+      "back": "الحرفاء",
+      "orderCount": "{count, plural, =0 {ما فماش طلبات} one {طلب واحد} two {زوز طلبات} other {# طلبات}}",
+      "totalSpent": "المجموع {amount}",
+      "ordersEmpty": "هذا الحريف ما طلبش توّا."
     },
     "stats": {
       "title": "الإحصائيات",

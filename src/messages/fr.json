@@ -209,7 +209,11 @@
     "clients": {
       "title": "Clients",
       "empty": "Aucun client pour le moment. Ils apparaissent dès la première commande.",
-      "fallbackName": "Client"
+      "fallbackName": "Client",
+      "back": "Clients",
+      "orderCount": "{count, plural, =0 {Aucune commande} one {# commande} other {# commandes}}",
+      "totalSpent": "Total {amount}",
+      "ordersEmpty": "Ce client n'a pas encore commandé."
     },
     "stats": {
       "title": "Statistiques",

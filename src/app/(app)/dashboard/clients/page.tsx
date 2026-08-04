@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { requireTenant } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
@@ -37,23 +38,28 @@ export default async function ClientsPage() {
       ) : (
         <ul className="flex flex-col gap-2">
           {clients.map((c) => (
-            <li
-              key={c.id}
-              className="flex items-center gap-3 rounded-[12px] border border-hair bg-white p-3.5"
-            >
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <div className="text-[14px] font-medium text-stone-ink">
-                  {c.name || t("fallbackName")}
+            <li key={c.id}>
+              <Link
+                href={`/dashboard/clients/${c.id}`}
+                className="flex items-center gap-3 rounded-[12px] border border-hair bg-white p-3.5"
+              >
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <div className="text-[14px] font-medium text-stone-ink">
+                    {c.name || t("fallbackName")}
+                  </div>
+                  <div dir="ltr" className="text-[13px] text-stone-muted">
+                    +216 {formatPhone(c.phone)}
+                  </div>
                 </div>
-                <div dir="ltr" className="text-[13px] text-stone-muted">
-                  +216 {formatPhone(c.phone)}
-                </div>
-              </div>
-              {c.last_repere && (
-                <div className="max-w-[45%] truncate text-[12px] text-stone-muted">
-                  {c.last_repere}
-                </div>
-              )}
+                {c.last_repere && (
+                  <div className="max-w-[40%] truncate text-[12px] text-stone-muted">
+                    {c.last_repere}
+                  </div>
+                )}
+                <span className="inline-block flex-none text-[18px] text-stone-faint rtl:rotate-180">
+                  ›
+                </span>
+              </Link>
             </li>
           ))}
         </ul>
