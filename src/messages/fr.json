@@ -367,8 +367,7 @@
           "step5": "Appuie sur « Add », en haut à droite. L’icône Wamye Pro apparaît sur ton écran d’accueil — ouvre l’app depuis elle."
         },
         "android": {
-          "step1": "Ouvre le menu de Chrome : les trois points, en haut à droite de l’écran.",
-          "step2": "Descends et choisis « Add to Home screen » — « Ajouter à l’écran d’accueil » si ton téléphone est en français — puis confirme. L’icône Wamye apparaît sur ton écran d’accueil : ouvre l’app depuis elle."
+          "step1": "Ouvre le menu de Chrome — les trois points, en haut à droite — puis choisis « Add to Home screen » (« Ajouter à l’écran d’accueil » si ton téléphone est en français) et confirme. L’icône Wamye apparaît sur ton écran d’accueil : ouvre l’app depuis elle."
         }
       }
     },
