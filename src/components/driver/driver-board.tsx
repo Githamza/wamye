@@ -13,7 +13,7 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/browser";
 import { haversineKm } from "@/lib/geo";
-import { useForegroundPosition } from "@/lib/hooks/use-foreground-position";
+import { useDriverPosition } from "@/lib/hooks/use-driver-position";
 import { isOrderState, isTerminal, type OrderState } from "@/lib/order-status";
 import type { DriverOrder } from "@/lib/order-types";
 import {
@@ -40,6 +40,8 @@ type Props = {
   tenantId: string;
   profileId: string;
   dispatchRadiusKm: number;
+  /** Server-detected (User-Agent): rendering inside the Android shell. */
+  nativeShell: boolean;
   initialActive: DriverOrder | null;
   initialPending: DriverOrder[];
 };
@@ -48,6 +50,7 @@ export function DriverBoard({
   tenantId,
   profileId,
   dispatchRadiusKm,
+  nativeShell,
   initialActive,
   initialPending,
 }: Props) {
@@ -67,8 +70,9 @@ export function DriverBoard({
   const declinedRef = useRef<Set<string>>(new Set());
   const [busy, startTransition] = useTransition();
 
-  const { position, denied, sharing } = useForegroundPosition(
+  const { position, denied, sharing } = useDriverPosition(
     active?.id ?? null,
+    nativeShell,
   );
 
   /**

@@ -11,6 +11,7 @@
   "dependencies": {
     "@capacitor/android": "^8.5.0",
     "@capacitor/core": "^8.5.0",
+    "@capgo/background-geolocation": "^8.3.2",
     "@googlemaps/js-api-loader": "^2.1.1",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.5",

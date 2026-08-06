@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { setRequestLocale } from "next-intl/server";
 import { requireTenant } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
@@ -7,6 +8,7 @@ import { PushSetup } from "@/components/pwa/push-setup";
 import { CrewStack } from "@/components/team/crew-stack";
 import { loadCrew } from "@/lib/crew-data";
 import { COURSE_COLUMNS, type DriverOrder } from "@/lib/order-types";
+import { isNativeShellUA } from "@/lib/native/shell";
 
 /**
  * The driver's home.
@@ -30,6 +32,10 @@ export default async function DashboardPage() {
   setRequestLocale(profile.locale);
 
   const supabase = await createClient();
+
+  // The Android shell announces itself in the UA; deciding here (server) means
+  // the board picks its position source with no hydration flash.
+  const nativeShell = isNativeShellUA((await headers()).get("user-agent"));
 
   // RLS (orders_select_tenant) scopes all three reads to the tenant.
   const [{ data: tenant }, { data: mine }, { data: pending }] =
@@ -78,6 +84,7 @@ export default async function DashboardPage() {
         tenantId={profile.tenantId}
         profileId={profile.id}
         dispatchRadiusKm={Number(tenant?.dispatch_radius_km ?? 8)}
+        nativeShell={nativeShell}
         initialActive={(mine as DriverOrder | null) ?? null}
         initialPending={(pending ?? []) as DriverOrder[]}
       />

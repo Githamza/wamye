@@ -21,6 +21,13 @@ Source: `tasks/plan.md` (implements `SPEC.md`). Static gates = `npm run lint`
 ## Phase 2 — Native GPS
 
 - [ ] **T2 — Native position source, foreground parity** (needs T1)
+  - Status: code landed; plugin is `@capgo/background-geolocation` 8.3.2
+    (community plugin stale for Capacitor 8 — swap approved). Gates green;
+    plugin confined to one lazy chunk; APK rebuilds with the plugin and the
+    merged manifest carries FINE/COARSE + FOREGROUND_SERVICE_LOCATION +
+    POST_NOTIFICATIONS (no ACCESS_BACKGROUND_LOCATION). NB: there was no
+    "foreground-only" banner to suppress — the three gps* strings are
+    platform-neutral, so none changed. Remaining: device rows 2 & 5.
   - Acceptance: `isNativeApp()` guard + dynamic plugin import;
     `useDriverPosition` in `driver-board.tsx`; browsers byte-identical;
     native permission prompt + `denied` parity; banner suppressed on native

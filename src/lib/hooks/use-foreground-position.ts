@@ -32,7 +32,13 @@ export type ForegroundPosition = {
   sharing: boolean;
 };
 
-export function useForegroundPosition(orderId: string | null): ForegroundPosition {
+export function useForegroundPosition(
+  orderId: string | null,
+  // The Android shell replaces this loop with the native watcher
+  // (use-driver-position). A disabled hook stays mounted but inert, which is
+  // what lets the caller pick a source without conditional hook calls.
+  enabled = true,
+): ForegroundPosition {
   const [position, setPosition] = useState<LatLng | null>(null);
   const [denied, setDenied] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -48,6 +54,7 @@ export function useForegroundPosition(orderId: string | null): ForegroundPositio
   }, [orderId]);
 
   useEffect(() => {
+    if (!enabled) return;
     if (typeof navigator === "undefined" || !navigator.geolocation) return;
 
     let watchId: number | null = null;
@@ -132,7 +139,7 @@ export function useForegroundPosition(orderId: string | null): ForegroundPositio
     };
     // orderId is read through a ref, so the watch survives a course starting or
     // ending without being torn down and re-prompting for permission.
-  }, []);
+  }, [enabled]);
 
   return { position, denied, sharing };
 }
