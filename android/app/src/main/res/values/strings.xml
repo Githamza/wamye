@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Wamye Livreur</string>
+    <string name="title_activity_main">Wamye Livreur</string>
+    <string name="package_name">live.mylabs.wamye</string>
+    <string name="custom_url_scheme">live.mylabs.wamye</string>
+</resources>

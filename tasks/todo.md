@@ -6,6 +6,10 @@ Source: `tasks/plan.md` (implements `SPEC.md`). Static gates = `npm run lint`
 ## Phase 1 — Foundation
 
 - [ ] **T1 — Walking skeleton: dashboard inside an APK**
+  - Status: code landed + debug APK builds (3.9 MB); static gates green
+    (3 pre-existing lint errors on HEAD, untouched). Remaining: install on a
+    phone and verify device-matrix row 1 (login persistence) + a Realtime
+    event. `adb install -r android/app/build/outputs/apk/debug/app-debug.apk`
   - Acceptance: APK opens live `/dashboard` (→ `/login` signed out); session
     survives app restart; Realtime works; `.dockerignore` excludes `android/`;
     keystore patterns in `.gitignore`; web untouched.

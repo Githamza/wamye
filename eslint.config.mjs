@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated native project and the stub it copies in — not ours to lint.
+    "android/**",
+    "capacitor-shell/**",
   ]),
 ]);
 

@@ -1,6 +1,10 @@
 node_modules
 .next
 .git
+# The Android shell renders the deployed site; none of it belongs in the image.
+android
+capacitor-shell
+capacitor.config.ts
 .env*
 !.env.example
 npm-debug.log*

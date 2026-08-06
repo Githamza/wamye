@@ -24,6 +24,11 @@
 .DS_Store
 *.pem
 
+# android signing — the release keystore and its passwords never enter git
+*.keystore
+*.jks
+android/keystore.properties
+
 # debug
 npm-debug.log*
 yarn-debug.log*
