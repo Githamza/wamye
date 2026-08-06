@@ -73,6 +73,7 @@ export function DriverBoard({
   const { position, denied, sharing } = useDriverPosition(
     active?.id ?? null,
     nativeShell,
+    t("gpsNotifBody"),
   );
 
   /**

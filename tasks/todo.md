@@ -40,6 +40,12 @@ Source: `tasks/plan.md` (implements `SPEC.md`). Static gates = `npm run lint`
     `src/components/driver/driver-board.tsx`, messages
 
 - [ ] **T3 — Background service during a course** (needs T2)
+  - Status: code landed. Watcher restarts on course start/end; with a course
+    it carries gpsNotifBody (fr + ar-TN) which raises the foreground service;
+    without, it drops back to foreground-only. No manifest edits needed
+    (plugin merge already granted everything) and no APK rebuild — behavior
+    ships with the next web deploy. Remaining: deploy, then device rows
+    3, 4, 6 (screen-off course, service teardown, battery saver notes).
   - Acceptance: course start → French persistent notification, screen-off
     fixes every ~15 s into `driver_positions`; course end → service +
     notification gone; no service when idle; battery-saver behavior noted.

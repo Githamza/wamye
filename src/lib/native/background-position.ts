@@ -37,6 +37,12 @@ export async function startNativeWatcher(
 
   const { BackgroundGeolocation } = await import("@capgo/background-geolocation");
 
+  // The watcher is a singleton and callers restart it to switch modes (course
+  // started or ended). The old watcher's stop() and this start() would
+  // otherwise race on the bridge; an explicit stop first makes restart safe
+  // and is a no-op when nothing runs.
+  await BackgroundGeolocation.stop().catch(() => {});
+
   await BackgroundGeolocation.start(
     {
       requestPermissions: true,

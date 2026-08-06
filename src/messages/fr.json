@@ -308,6 +308,7 @@
       "gpsSharing": "Position partagée avec le client.",
       "gpsWaiting": "Recherche de ta position…",
       "gpsDenied": "Position désactivée — le client ne te verra pas sur la carte.",
+      "gpsNotifBody": "Course en cours — ta position est partagée avec le client, même écran éteint.",
       "takenByOther": "Course déjà prise par un autre livreur.",
       "actionFailed": "L'action n'a pas abouti. Réessaie.",
       "decline": "Je ne prends pas",

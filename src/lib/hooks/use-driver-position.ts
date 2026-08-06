@@ -15,9 +15,10 @@ import {
  * unconditionally with the losing branch disabled — no conditional hook
  * calls, no double watcher.
  *
- * Web: the untouched foreground loop. Native: the @capgo plugin, which at
- * this stage (T2) mirrors the web loop's honest foreground-only scope; T3
- * upgrades it to a foreground service during an active course.
+ * Web: the untouched foreground loop. Native: the @capgo plugin — foreground
+ * scope while idle, upgraded to an Android foreground service (persistent
+ * notification, screen-off tracking) for the span of an active course.
+ * `courseNotifBody` is that notification's localized text.
  */
 
 /** Same cadence as the web loop: one POST per this many ms. */
@@ -26,15 +27,17 @@ const POST_INTERVAL_MS = 15_000;
 export function useDriverPosition(
   orderId: string | null,
   nativeShell: boolean,
+  courseNotifBody: string,
 ): ForegroundPosition {
   const web = useForegroundPosition(orderId, !nativeShell);
-  const native = useNativePosition(orderId, nativeShell);
+  const native = useNativePosition(orderId, nativeShell, courseNotifBody);
   return nativeShell ? native : web;
 }
 
 function useNativePosition(
   orderId: string | null,
   enabled: boolean,
+  courseNotifBody: string,
 ): ForegroundPosition {
   const [position, setPosition] = useState<LatLng | null>(null);
   const [denied, setDenied] = useState(false);
@@ -48,6 +51,14 @@ function useNativePosition(
   useEffect(() => {
     orderRef.current = orderId;
   }, [orderId]);
+
+  // The watcher restarts when a course starts or ends — not on every course
+  // change — because the two modes differ: with a course, `backgroundMessage`
+  // raises the foreground service (notification + screen-off tracking);
+  // without one, the plugin drops back to foreground-only and Android tears
+  // the service down. Which course it is only matters to the POST body, and
+  // that reads the ref.
+  const hasCourse = orderId !== null;
 
   useEffect(() => {
     if (!enabled) return;
@@ -89,6 +100,7 @@ function useNativePosition(
     void import("@/lib/native/background-position").then(async (mod) => {
       if (cancelled) return;
       stopWatcher = await mod.startNativeWatcher({
+        backgroundMessage: hasCourse ? courseNotifBody : undefined,
         onFix: (fix) => {
           setSharing(true);
           setPosition({ lat: fix.latitude, lng: fix.longitude });
@@ -107,7 +119,7 @@ function useNativePosition(
       setSharing(false);
       void stopWatcher?.();
     };
-  }, [enabled]);
+  }, [enabled, hasCourse, courseNotifBody]);
 
   return { position, denied, sharing };
 }
