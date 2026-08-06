@@ -70,7 +70,7 @@ app in the background**, via an Android foreground service.
 
 - Next.js 16.2 (App Router, `output: "standalone"`, next-intl) — unchanged.
 - Supabase (auth cookies, Realtime, RLS) — unchanged.
-- **New:** Capacitor 7 (`@capacitor/core`, `@capacitor/cli`, `@capacitor/android`),
+- **New:** Capacitor 8 (`@capacitor/core`, `@capacitor/cli`, `@capacitor/android`),
   `@capacitor-community/background-geolocation`.
 - Android toolchain: Android Studio / SDK, JDK 21, Gradle (generated project).
 
