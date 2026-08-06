@@ -64,6 +64,11 @@ Source: `tasks/plan.md` (implements `SPEC.md`). Static gates = `npm run lint`
 
 - [ ] **T4 — `/telecharger` page + APK in public Supabase bucket** (needs T1;
   bucket creation is ask-first)
+  - Status: page landed and renders (fr + ar-TN, QR, direct link). Bucket +
+    upload blocked for the agent by the permission classifier — run the
+    user-side script (see scratchpad publish-apk.sh) once; rerun it after
+    each APK build. Remaining: run script, then download+install from the
+    page on a phone.
   - Acceptance: direct `.apk` link from public `apk` bucket downloads on
     Android; QR + French copy; new APK upload needs no redeploy.
   - Verify: static gates; install from the page on a phone.

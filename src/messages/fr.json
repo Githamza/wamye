@@ -40,6 +40,14 @@
     "or": "ou",
     "continueWithGoogle": "Continuer avec Google"
   },
+  "Telecharger": {
+    "title": "Wamye Livreur pour Android",
+    "lead": "L'application des livreurs. Pendant une course, ta position reste partagée avec le client même écran éteint ou téléphone en poche — ce que le site ne sait pas faire.",
+    "download": "Télécharger l'application (APK)",
+    "installHint": "Android va demander d'autoriser l'installation d'applications hors Play Store : accepte, installe, puis connecte-toi comme d'habitude.",
+    "qrHint": "Ou scanne ce code avec le téléphone :",
+    "webKeeps": "Le site continue de fonctionner normalement — l'application est en plus, pas à la place."
+  },
   "Join": {
     "title": "Rejoindre {team}",
     "intro": "Créez votre compte livreur. Votre responsable devra accepter votre demande avant que vous commenciez à recevoir des courses.",
