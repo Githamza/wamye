@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { headers } from "next/headers";
-import { setRequestLocale } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { requireTenant } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { ShopLink } from "@/components/shop-link";
@@ -30,6 +31,7 @@ const FEED_WINDOW = "3 hours";
 export default async function DashboardPage() {
   const profile = await requireTenant();
   setRequestLocale(profile.locale);
+  const t = await getTranslations("Dashboard");
 
   const supabase = await createClient();
 
@@ -79,6 +81,20 @@ export default async function DashboardPage() {
       {/* Here rather than in Réglages, which is owner-only: notifications are a
           per-device setting every member — sub-drivers included — must reach. */}
       <PushSetup />
+
+      {/* Same per-device logic as PushSetup. Hidden inside the shell itself,
+          where it would be an invitation to install what is already running. */}
+      {!nativeShell && (
+        <Link
+          href="/telecharger"
+          className="flex items-center justify-between gap-3 rounded-[14px] border border-hair bg-white p-3.5 text-[13px] text-stone-muted"
+        >
+          <span>{t("getApp")}</span>
+          <span className="shrink-0 rounded-[8px] bg-brand px-3 py-1.5 text-[13px] font-semibold text-white">
+            {t("getAppCta")}
+          </span>
+        </Link>
+      )}
 
       <DriverBoard
         tenantId={profile.tenantId}

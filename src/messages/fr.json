@@ -205,6 +205,8 @@
   },
   "Dashboard": {
     "updateBanner": "Nouvelle version de l'application disponible — appuie ici pour la télécharger.",
+    "getApp": "Télécharge l'appli Android : ta position reste partagée pendant une course, même écran éteint.",
+    "getAppCta": "Installer",
     "nav": {
       "orders": "Courses",
       "stats": "Statistiques",
