@@ -11,14 +11,14 @@ APK="${1:-android/app/build/outputs/apk/debug/app-debug.apk}"
 
 echo "— bucket (déjà là = erreur inoffensive) —"
 curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/storage/v1/bucket" \
-  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
   -H "Content-Type: application/json" \
   -d '{"id":"apk","name":"apk","public":true}'
 echo
 
 echo "— upload $APK —"
 curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/storage/v1/object/apk/wamye-livreur.apk" \
-  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
   -H "Content-Type: application/vnd.android.package-archive" \
   -H "x-upsert: true" \
   --data-binary "@$APK"
