@@ -87,6 +87,13 @@ Source: `tasks/plan.md` (implements `SPEC.md`). Static gates = `npm run lint`
     `src/app/(app)/dashboard/layout.tsx`, messages
 
 - [ ] **T6 — Signed release + `docs/android.md` runbook** (needs T1–T5)
+  - Status: code landed. Keystore + keystore.properties generated under
+    android/ (gitignored, verified; BACK THEM UP off this machine).
+    assembleRelease produces a signed APK (cert CN=Wamye Livreur, verified
+    with apksigner); unsigned fallback keeps clean clones building. Runbook
+    written; upload script now lives at scripts/publish-apk.sh (user-run).
+    Remaining: run publish-apk.sh with the release APK, install via
+    /telecharger on a phone, full device matrix on the release build.
   - Acceptance: signed release APK installs via `/telecharger`; no secrets
     in git; runbook covers clean-clone build → sign → upload → version bump.
   - Verify: `./gradlew assembleRelease`; full device matrix on the release

@@ -1,7 +1,14 @@
 # Spec: Wamye Livreur — Android (Capacitor wrapper with native GPS)
 
-Status: **draft — awaiting review**
+Status: **v1 code complete (2026-08-07)** — all six tasks landed; remaining
+before "shipped": user-run APK upload (`scripts/publish-apk.sh`), the
+on-device matrix, and a real-course demo. See `tasks/todo.md`.
 Date: 2026-08-06
+
+**v2 backlog:** FCM native push (new-order alerts with the app closed);
+foreground service while merely available (stale `profiles.last_*`);
+Play Store release (needs the `ACCESS_BACKGROUND_LOCATION`-free story we
+kept, plus listing + review).
 
 ## Objective
 
