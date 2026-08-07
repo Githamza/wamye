@@ -75,6 +75,11 @@ Source: `tasks/plan.md` (implements `SPEC.md`). Static gates = `npm run lint`
   - Files: `src/app/(app)/telecharger/page.tsx`, messages
 
 - [ ] **T5 — Minimum-version gate** (needs T1)
+  - Status: code landed. Gate lives in dashboard/layout.tsx; inert unless
+    ANDROID_MIN_VERSION (runtime env, needs container restart when raised)
+    is set AND the UA carries a lower WamyeLivreur/<code>. Remaining:
+    devtools UA-spoof check on a signed-in session, and set the env var on
+    Coolify when first needed.
   - Acceptance: UA `WamyeLivreur/<code>` parsed server-side; banner only in
     an outdated shell, links to `/telecharger`; env absent → inert.
   - Verify: static gates; UA spoof in devtools; confirm on phone.

@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { requireTenant } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardLocaleSwitcher } from "@/components/dashboard-locale-switcher";
 import { Logo } from "@/components/logo";
+import { shellVersionCode } from "@/lib/native/shell";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +57,16 @@ export default async function DashboardLayout({
   if (tenant?.status !== "active") redirect("/pending");
 
   const nav = NAV.filter((n) => !n.ownerOnly || profile.isOwner);
+
+  // Update nudge for the Android shell. The web code is always current (the
+  // shell renders the live site) but the native side only changes with a new
+  // APK. ANDROID_MIN_VERSION is a runtime env var: raising it needs a
+  // container restart, no build. Absent or in a browser → inert.
+  const minVersion = Number(process.env.ANDROID_MIN_VERSION);
+  const shellCode = Number.isFinite(minVersion)
+    ? shellVersionCode((await headers()).get("user-agent"))
+    : null;
+  const shellOutdated = shellCode !== null && shellCode < minVersion;
 
   // Join requests wait on the owner and nothing else surfaces them, so the tab
   // carries the count. Owners only — the query is scoped to their own team.
@@ -109,6 +121,15 @@ export default async function DashboardLayout({
           </Link>
         ))}
       </nav>
+
+      {shellOutdated && (
+        <Link
+          href="/telecharger"
+          className="block bg-brand px-5 py-2.5 text-center text-[13px] font-medium text-white"
+        >
+          {t("updateBanner")}
+        </Link>
+      )}
 
       <main className="mx-auto w-full max-w-3xl p-4 sm:p-6">{children}</main>
     </div>

@@ -204,6 +204,7 @@
     "toast": "C'est noté — on vous prévient à l'ouverture 👋"
   },
   "Dashboard": {
+    "updateBanner": "Nouvelle version de l'application disponible — appuie ici pour la télécharger.",
     "nav": {
       "orders": "Courses",
       "stats": "Statistiques",

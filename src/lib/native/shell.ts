@@ -12,3 +12,14 @@ const SHELL_UA_MARK = "WamyeLivreur/";
 export function isNativeShellUA(userAgent: string | null): boolean {
   return userAgent?.includes(SHELL_UA_MARK) ?? false;
 }
+
+/**
+ * The shell's versionCode, or null in a browser. Compared against
+ * ANDROID_MIN_VERSION (runtime env) to nudge drivers whose installed APK is
+ * too old — the web code always ships latest, the native shell only changes
+ * with a reinstall.
+ */
+export function shellVersionCode(userAgent: string | null): number | null {
+  const m = userAgent?.match(/WamyeLivreur\/(\d+)/);
+  return m ? Number(m[1]) : null;
+}
